@@ -1,3 +1,7 @@
+main/certs/certificate.pem.crt
+main/certs/private.pem.key
+compile.log
+
 # Prerequisites
 *.d
 
