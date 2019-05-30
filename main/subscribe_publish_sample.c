@@ -60,65 +60,6 @@ extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 // AWS IoT client endpoint
 const char *client_endpoint = "acpzbsqyyfpu4.iot.eu-west-2.amazonaws.com";
 
-// AWS IoT device certificate (ECC)
-const char *client_cert =
-"-----BEGIN CERTIFICATE-----\r\n"
-"MIICoTCCAYmgAwIBAgIUJ5o0lwZlj+SD4Sa/LPYrsXbz0mUwDQYJKoZIhvcNAQEL\r\n"
-"BQAwTTFLMEkGA1UECwxCQW1hem9uIFdlYiBTZXJ2aWNlcyBPPUFtYXpvbi5jb20g\r\n"
-"SW5jLiBMPVNlYXR0bGUgU1Q9V2FzaGluZ3RvbiBDPVVTMB4XDTE5MDIyNzIwNDU1\r\n"
-"MVoXDTQ5MTIzMTIzNTk1OVowMTELMAkGA1UEBhMCUEwxEzARBgNVBAgMClNvbWUt\r\n"
-"U3RhdGUxDTALBgNVBAoMBHRlc3QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQq\r\n"
-"c+0lympsxsdBlwNv0/6ZfC0WxsseBNjJrntrqvhV4K72BPsg+cASFxHzsIgq1jxS\r\n"
-"V7+UMYbzsOE8lLp2kSj0o2AwXjAfBgNVHSMEGDAWgBRRMQiWgq1LqUb8mgHoFwhy\r\n"
-"wBTtcDAdBgNVHQ4EFgQU37fGHXJB0RA+6tAuXd9X921O00owDAYDVR0TAQH/BAIw\r\n"
-"ADAOBgNVHQ8BAf8EBAMCB4AwDQYJKoZIhvcNAQELBQADggEBAE+mW3JNsTcfwdQQ\r\n"
-"2S1GUOmQEWV6eQ2bzQHMTyZfEJQIh8VBW4APhxKMP1tD/KXJ8fKImVFDIXEDVif7\r\n"
-"ollAs8P+lJz6Tii4/fKo90AGytaJJALyBWkskKFQ/2QAqcWfPwUP5rriM4BKat5O\r\n"
-"Lfr5emGr0Y174LU4JNkaK+H9o/aFttGpUaY6RjHeWbZ5X6DM5KJzE3GbelI4vv0Z\r\n"
-"geKjhQXvaVrwiVc+TB9cxUKNoFKeEgaXMjxsFzvDYo4EtQXkTIlM1mwxgMd467R3\r\n"
-"PMT7cgy1qPibAD031pjZEvLi5sMoDO+KP6C/T0mpNq2mkiCZq6wrwgz8cIUdbJd/\r\n"
-"4khOuvY=\r\n"
-"-----END CERTIFICATE-----\r\n";
-
-// AWS IoT device private key (ECC)
-const char *client_key = 
-"-----BEGIN EC PARAMETERS-----\r\n"
-"BggqhkjOPQMBBw==\r\n"
-"-----END EC PARAMETERS-----\r\n"
-"-----BEGIN EC PRIVATE KEY-----\r\n"
-"MHcCAQEEIA5lYX2aP14ijN1oOtQFdCm867oTmlA/cPUFILDkr9hfoAoGCCqGSM49\r\n"
-"AwEHoUQDQgAEKnPtJcpqbMbHQZcDb9P+mXwtFsbLHgTYya57a6r4VeCu9gT7IPnA\r\n"
-"EhcR87CIKtY8Ule/lDGG87DhPJS6dpEo9A==\r\n"
-"-----END EC PRIVATE KEY-----\r\n";
-
-const char *ca_cert = "-----BEGIN CERTIFICATE-----\r\n"
-        "MIIE0zCCA7ugAwIBAgIQGNrRniZ96LtKIVjNzGs7SjANBgkqhkiG9w0BAQUFADCB\r\n"
-        "yjELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMR8wHQYDVQQL\r\n"
-        "ExZWZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTowOAYDVQQLEzEoYykgMjAwNiBWZXJp\r\n"
-        "U2lnbiwgSW5jLiAtIEZvciBhdXRob3JpemVkIHVzZSBvbmx5MUUwQwYDVQQDEzxW\r\n"
-        "ZXJpU2lnbiBDbGFzcyAzIFB1YmxpYyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0\r\n"
-        "aG9yaXR5IC0gRzUwHhcNMDYxMTA4MDAwMDAwWhcNMzYwNzE2MjM1OTU5WjCByjEL\r\n"
-        "MAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWduLCBJbmMuMR8wHQYDVQQLExZW\r\n"
-        "ZXJpU2lnbiBUcnVzdCBOZXR3b3JrMTowOAYDVQQLEzEoYykgMjAwNiBWZXJpU2ln\r\n"
-        "biwgSW5jLiAtIEZvciBhdXRob3JpemVkIHVzZSBvbmx5MUUwQwYDVQQDEzxWZXJp\r\n"
-        "U2lnbiBDbGFzcyAzIFB1YmxpYyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0aG9y\r\n"
-        "aXR5IC0gRzUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCvJAgIKXo1\r\n"
-        "nmAMqudLO07cfLw8RRy7K+D+KQL5VwijZIUVJ/XxrcgxiV0i6CqqpkKzj/i5Vbex\r\n"
-        "t0uz/o9+B1fs70PbZmIVYc9gDaTY3vjgw2IIPVQT60nKWVSFJuUrjxuf6/WhkcIz\r\n"
-        "SdhDY2pSS9KP6HBRTdGJaXvHcPaz3BJ023tdS1bTlr8Vd6Gw9KIl8q8ckmcY5fQG\r\n"
-        "BO+QueQA5N06tRn/Arr0PO7gi+s3i+z016zy9vA9r911kTMZHRxAy3QkGSGT2RT+\r\n"
-        "rCpSx4/VBEnkjWNHiDxpg8v+R70rfk/Fla4OndTRQ8Bnc+MUCH7lP59zuDMKz10/\r\n"
-        "NIeWiu5T6CUVAgMBAAGjgbIwga8wDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8E\r\n"
-        "BAMCAQYwbQYIKwYBBQUHAQwEYTBfoV2gWzBZMFcwVRYJaW1hZ2UvZ2lmMCEwHzAH\r\n"
-        "BgUrDgMCGgQUj+XTGoasjY5rw8+AatRIGCx7GS4wJRYjaHR0cDovL2xvZ28udmVy\r\n"
-        "aXNpZ24uY29tL3ZzbG9nby5naWYwHQYDVR0OBBYEFH/TZafC3ey78DAJ80M5+gKv\r\n"
-        "MzEzMA0GCSqGSIb3DQEBBQUAA4IBAQCTJEowX2LP2BqYLz3q3JktvXf2pXkiOOzE\r\n"
-        "p6B4Eq1iDkVwZMXnl2YtmAl+X6/WzChl8gGqCBpH3vn5fJJaCGkgDdk+bW48DW7Y\r\n"
-        "5gaRQBi5+MHt39tBquCWIMnNZBU4gcmU7qKEKQsTb47bDN0lAtukixlE0kF6BWlK\r\n"
-        "WE9gyn6CagsCqiUXObXbf+eEZSqVir2G3l6BFoMtEMze/aiCKm0oHw0LxOXnGiYZ\r\n"
-        "4fQRbxC1lfznQgUy286dUV4otp6F01vvpX1FQHKOtw5rDgb7MzVIcbidJ4vEZV8N\r\n"
-        "hnacRHr2lVz2XTIIM6RUthg/aFzyQkqFOFSDX9HoLPKsEdao7WNq\r\n"
-        "-----END CERTIFICATE-----\r\n";
 /* The examples use simple WiFi configuration that you can set via
    'make menuconfig'.
 
@@ -223,10 +164,6 @@ void aws_iot_task(void *param) {
     mqttInitParams.enableAutoReconnect = false; // We enable this later below
     mqttInitParams.pHostURL = client_endpoint;
     mqttInitParams.port = port;
-
-    //mqttInitParams.pRootCALocation = ca_cert;
-    //mqttInitParams.pDeviceCertLocation = client_cert;
-    //mqttInitParams.pDevicePrivateKeyLocation = client_key;
 
     mqttInitParams.pRootCALocation = (const char*) aws_root_ca_pem_start;
     mqttInitParams.pDeviceCertLocation = (const char*) certificate_pem_crt_start; 
