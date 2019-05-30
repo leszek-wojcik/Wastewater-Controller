@@ -5,7 +5,8 @@
 
 PROJECT_NAME := subscribe_publish
 
-EXTRA_COMPONENT_DIRS := $(realpath ../..)
+EXTRA_COMPONENT_DIRS = /home/leszek/github/esp-aws-iot
+#EXTRA_COMPONENT_DIRS := $(realpath ../)
 
 include $(IDF_PATH)/make/project.mk
 

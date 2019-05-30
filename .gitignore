@@ -1,6 +1,9 @@
 main/certs/certificate.pem.crt
 main/certs/private.pem.key
 compile.log
+build/*
+build
+sdkconfig
 
 # Prerequisites
 *.d
