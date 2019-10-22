@@ -1,3 +1,3 @@
-Include certificates files in PEM format:
-certificate.pem.crt - AWS signed public key certificate
-private.pem.key - private key for your device
+Copy certificate files for AWS IoT SDK example here
+
+See README.md in main example directory for details.

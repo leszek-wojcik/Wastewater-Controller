@@ -3,9 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := WastewaterController
-
-EXTRA_COMPONENT_DIRS := $(realpath .)
+PROJECT_NAME := subscribe_publish
 
 include $(IDF_PATH)/make/project.mk
 

@@ -1,0 +1,1 @@
+sudo docker run -v `pwd`/main:/main -v `pwd`/certs:/certs -ti wwc-controller "$@"

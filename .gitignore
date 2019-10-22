@@ -5,6 +5,10 @@ build/*
 build
 sdkconfig
 
+cloud_controller/certs/*
+
+*.swp
+
 # Prerequisites
 *.d
 
