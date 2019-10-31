@@ -1,28 +1,19 @@
 FROM ubuntu:16.04
 
-RUN apt-get update && apt-get install -y gawk grep python python-dev automake make vim git bzip2 unzip wget python-pip cscope
+RUN apt-get update && apt-get install -y gawk grep python3 python3-pip python-dev automake make vim git bzip2 unzip wget python-pip cscope
+
+RUN pip3 install AWSIoTPythonSDK 
+RUN pip3 install python-dateutil
 
 RUN useradd wwc
 RUN mkdir /github
 RUN chown wwc /github
 USER wwc
-
 WORKDIR /github
 RUN git clone https://github.com/aws/aws-iot-device-sdk-python.git
-
-USER root
-
-RUN apt-get install -y python3-pip
-
-RUN pip3 install AWSIoTPythonSDK 
-RUN pip3 install python-dateutil
-
-RUN apt-get install -y python3
 
 VOLUME ["/main"]
 VOLUME ["/certs"]
 WORKDIR /
 ENTRYPOINT ["python3", "/main/wwc_controller.py"]
-#ENTRYPOINT ["/bin/bash"]
-
 
