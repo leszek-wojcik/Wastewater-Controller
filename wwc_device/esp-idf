@@ -1,0 +1,1 @@
+sudo docker run -h esp-idf -ti -v `pwd`:/github/Wastewater-Controller --device=/dev/ttyUSB0 esp-idf /bin/bash

@@ -29,10 +29,11 @@ myMQTTClient.configureDrainingFrequency(2)
 myMQTTClient.configureConnectDisconnectTimeout(10)
 myMQTTClient.configureMQTTOperationTimeout(5)
 myMQTTClient.connect()
-myMQTTClient.subscribe("dupa", 1, customCallback)
+#myMQTTClient.subscribe("dupa", 1, customCallback)
 
 event = json.loads(injason)
 d = dateutil.parser.parse (event["time"])
 
 while True:
-    time.sleep(1)
+    time.sleep(2)
+    myMQTTClient.publish("dupa", "costam", 1)

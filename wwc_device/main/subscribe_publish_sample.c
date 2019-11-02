@@ -49,6 +49,7 @@
 #include "aws_iot_mqtt_client_interface.h"
 
 static const char *TAG = "subpub";
+#define BLINK_GPIO 2
 
 /* The examples use simple WiFi configuration that you can set via
    'make menuconfig'.
@@ -132,8 +133,13 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 
 void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, char *topicName, uint16_t topicNameLen,
                                     IoT_Publish_Message_Params *params, void *pData) {
-    ESP_LOGI(TAG, "Subscribe callback");
+    ESP_LOGI(TAG, "!Subscribe callback");
     ESP_LOGI(TAG, "%.*s\t%.*s", topicNameLen, topicName, (int) params->payloadLen, (char *)params->payload);
+
+    gpio_set_level(BLINK_GPIO, 1);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    gpio_set_level(BLINK_GPIO, 0);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
 void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) {
@@ -158,6 +164,7 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) {
 }
 
 void aws_iot_task(void *param) {
+
     char cPayload[100];
 
     int32_t i = 0;
@@ -234,7 +241,7 @@ void aws_iot_task(void *param) {
         if(SUCCESS != rc) {
             ESP_LOGE(TAG, "Error(%d) connecting to %s:%d", rc, mqttInitParams.pHostURL, mqttInitParams.port);
             ESP_LOGE(TAG, " client id %s", connectParams.pClientID );
-            vTaskDelay(1000 / portTICK_RATE_MS);
+            vTaskDelay(10000 / portTICK_RATE_MS);
         }
     } while(SUCCESS != rc);
 
@@ -252,7 +259,7 @@ void aws_iot_task(void *param) {
     const char *TOPIC = "dupa";
     const int TOPIC_LEN = strlen(TOPIC);
 
-    ESP_LOGI(TAG, "Subscribing...");
+    ESP_LOGI(TAG, "Subscribing to %s...", TOPIC);
     rc = aws_iot_mqtt_subscribe(&client, TOPIC, TOPIC_LEN, QOS0, iot_subscribe_callback_handler, NULL);
     if(SUCCESS != rc) {
         ESP_LOGE(TAG, "Error subscribing : %d ", rc);
@@ -279,10 +286,8 @@ void aws_iot_task(void *param) {
         }
 
         ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL));
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS0)", i++);
-        paramsQOS0.payloadLen = strlen(cPayload);
-        rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
+
+        vTaskDelay(10000 / portTICK_RATE_MS);
 
         sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS1)", i++);
         paramsQOS1.payloadLen = strlen(cPayload);
@@ -320,6 +325,9 @@ static void initialise_wifi(void)
 
 void app_main()
 {
+    gpio_pad_select_gpio(BLINK_GPIO);
+    gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+
     // Initialize NVS.
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {

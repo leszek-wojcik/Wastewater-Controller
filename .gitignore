@@ -1,9 +1,9 @@
-main/certs/certificate.pem.crt
-main/certs/private.pem.key
-compile.log
-build/*
-build
-sdkconfig
+wwc_device/main/certs/certificate.pem.crt
+wwc_device/main/certs/private.pem.key
+wwc_device/compile.log
+wwc_device/build/*
+wwc_device/build
+wwc_device/sdkconfig
 
 cloud_controller/certs/*
 
