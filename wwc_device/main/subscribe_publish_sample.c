@@ -49,7 +49,6 @@
 #include "aws_iot_mqtt_client_interface.h"
 
 static const char *TAG = "subpub";
-#define BLINK_GPIO 2
 
 /* The examples use simple WiFi configuration that you can set via
    'make menuconfig'.
@@ -126,10 +125,6 @@ void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, char *topicName, ui
     ESP_LOGI(TAG, "!Subscribe callback");
     ESP_LOGI(TAG, "%.*s\t%.*s", topicNameLen, topicName, (int) params->payloadLen, (char *)params->payload);
 
-    gpio_set_level(BLINK_GPIO, 1);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    gpio_set_level(BLINK_GPIO, 0);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
 void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) {
@@ -290,12 +285,10 @@ static void initialise_wifi(void)
     ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
+extern void createActiveObjects();
 
 void app_main()
 {
-    gpio_pad_select_gpio(BLINK_GPIO);
-    gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
-
     // Initialize NVS.
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -306,4 +299,5 @@ void app_main()
 
     initialise_wifi();
     xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
+    createActiveObjects();
 }

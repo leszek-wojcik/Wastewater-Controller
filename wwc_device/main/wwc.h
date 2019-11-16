@@ -1,6 +1,10 @@
-class wwc : public ActiveObject
+class WWC : public ActiveObject
 {
+    private:
+        TimerHandle_t aWWCtmr;
+        
     public:
-        wwc();
+        WWC();
+        void controlOnTmr();
 };
 

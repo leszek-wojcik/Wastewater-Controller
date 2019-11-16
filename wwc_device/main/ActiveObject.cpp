@@ -21,12 +21,13 @@ ActiveObject::ActiveObject(string name, uint16_t stackSize , UBaseType_t priorit
         printf("MR Queue was not created \r\n ");
     }
 
-    xReturned = xTaskCreate( ActiveObjectTaskFunction,
+    xReturned = xTaskCreatePinnedToCore( ActiveObjectTaskFunction,
             name.c_str(), 
             stackSize,
             mrQueue, 
             priority,
-            &newTask);
+            &newTask,
+            1);
     
     if (xReturned != pdPASS)
     {
