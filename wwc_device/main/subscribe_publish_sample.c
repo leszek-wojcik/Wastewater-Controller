@@ -80,7 +80,6 @@ const int CONNECTED_BIT = BIT0;
 
    See example README for more details.
 */
-#if defined(CONFIG_EXAMPLE_EMBEDDED_CERTS)
 
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
@@ -89,15 +88,6 @@ extern const uint8_t certificate_pem_crt_end[] asm("_binary_certificate_pem_crt_
 extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start");
 extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
-#elif defined(CONFIG_EXAMPLE_FILESYSTEM_CERTS)
-
-static const char * DEVICE_CERTIFICATE_PATH = CONFIG_EXAMPLE_CERTIFICATE_PATH;
-static const char * DEVICE_PRIVATE_KEY_PATH = CONFIG_EXAMPLE_PRIVATE_KEY_PATH;
-static const char * ROOT_CA_PATH = CONFIG_EXAMPLE_ROOT_CA_PATH;
-
-#else
-#error "Invalid method for loading certs"
-#endif
 
 /**
  * @brief Default MQTT HOST URL is pulled from the aws_iot_config.h
@@ -184,38 +174,15 @@ void aws_iot_task(void *param) {
     mqttInitParams.pHostURL = HostAddress;
     mqttInitParams.port = port;
 
-#if defined(CONFIG_EXAMPLE_EMBEDDED_CERTS)
     mqttInitParams.pRootCALocation = (const char *)aws_root_ca_pem_start;
     mqttInitParams.pDeviceCertLocation = (const char *)certificate_pem_crt_start;
     mqttInitParams.pDevicePrivateKeyLocation = (const char *)private_pem_key_start;
-
-#elif defined(CONFIG_EXAMPLE_FILESYSTEM_CERTS)
-    mqttInitParams.pRootCALocation = ROOT_CA_PATH;
-    mqttInitParams.pDeviceCertLocation = DEVICE_CERTIFICATE_PATH;
-    mqttInitParams.pDevicePrivateKeyLocation = DEVICE_PRIVATE_KEY_PATH;
-#endif
 
     mqttInitParams.mqttCommandTimeout_ms = 20000;
     mqttInitParams.tlsHandshakeTimeout_ms = 5000;
     mqttInitParams.isSSLHostnameVerify = true;
     mqttInitParams.disconnectHandler = disconnectCallbackHandler;
     mqttInitParams.disconnectHandlerData = NULL;
-
-#ifdef CONFIG_EXAMPLE_SDCARD_CERTS
-    ESP_LOGI(TAG, "Mounting SD card...");
-    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = false,
-        .max_files = 3,
-    };
-    sdmmc_card_t* card;
-    esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to mount SD card VFAT filesystem. Error: %s", esp_err_to_name(ret));
-        abort();
-    }
-#endif
 
     rc = aws_iot_mqtt_init(&client, &mqttInitParams);
     if(SUCCESS != rc) {
@@ -276,7 +243,8 @@ void aws_iot_task(void *param) {
     paramsQOS1.payload = (void *) cPayload;
     paramsQOS1.isRetained = 0;
 
-    while((NETWORK_ATTEMPTING_RECONNECT == rc || NETWORK_RECONNECTED == rc || SUCCESS == rc)) {
+    while((NETWORK_ATTEMPTING_RECONNECT == rc || NETWORK_RECONNECTED == rc || SUCCESS == rc)) 
+    {
 
         //Max time the yield function will wait for read messages
         rc = aws_iot_mqtt_yield(&client, 100);
