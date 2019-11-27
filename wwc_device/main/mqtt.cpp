@@ -273,19 +273,47 @@ static void initialise_wifi(void)
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
     ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = EXAMPLE_WIFI_SSID,
-            .password = EXAMPLE_WIFI_PASS,
-        },
-    };
+
+    wifi_config_t wifi_config = { .sta = 
+                                    {
+                                        EXAMPLE_WIFI_SSID,
+                                        EXAMPLE_WIFI_PASS,
+                                        WIFI_FAST_SCAN,
+                                        false,
+                                        {'0','0','0','0','0','0'},
+                                        0,
+                                        0,
+                                        WIFI_CONNECT_AP_BY_SIGNAL,
+                                        {0, WIFI_AUTH_OPEN}
+                                    }
+                                };
+
+
+    //wifi_config_t wifi_config = {
+    //    .sta = {
+    //        .ssid = EXAMPLE_WIFI_SSID,
+    //        .password = EXAMPLE_WIFI_PASS,
+    //    },
+    //};
     ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
-extern void createActiveObjects();
+extern "C" void app_main();
+
+#include "ActiveObject.h"
+#include "wwc.h"
+
+
+WWC *aWWC;
+
+void createActiveObjects()
+{
+    aWWC = new WWC();
+}
+
 
 void app_main()
 {
