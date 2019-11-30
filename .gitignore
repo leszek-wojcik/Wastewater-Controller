@@ -4,6 +4,7 @@ wwc_device/compile.log
 wwc_device/build/*
 wwc_device/build
 wwc_device/sdkconfig
+wwc_device/sdkconfig.old
 
 cloud_controller/certs/*
 

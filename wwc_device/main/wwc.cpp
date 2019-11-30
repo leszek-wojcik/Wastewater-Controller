@@ -5,8 +5,8 @@
 
 #include "ActiveObject.h"
 #include "wwc.h"
-
 #include "stdio.h"
+#include "string.h"
 
 #define BLINK_GPIO (gpio_num_t)2
 
@@ -22,12 +22,15 @@ WWC::WWC():ActiveObject("WWC")
                 5000/portTICK_PERIOD_MS  );
 }
 
+extern uint8_t sendMQTTmsg(std::string *);
+
 void WWC::controlOnTmr()
 {
 
-    printf("hello from WWC\n");
     gpio_set_level(BLINK_GPIO, 1);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     gpio_set_level(BLINK_GPIO, 0);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    
+    std::string *msg = new std::string("ala");
+    sendMQTTmsg(msg);
 }

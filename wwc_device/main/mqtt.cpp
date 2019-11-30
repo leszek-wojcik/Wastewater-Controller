@@ -30,6 +30,8 @@
 #include <limits.h>
 #include <string.h>
 
+#include <string>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -148,11 +150,16 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) {
     }
 }
 
+
+QueueHandle_t xmitQueue = NULL;
+
 void aws_iot_task(void *param) {
 
     char cPayload[100];
-
+    std::string * msg;
     int32_t i = 0;
+
+    xmitQueue = xQueueCreate(20, sizeof(std::string *));
 
     IoT_Error_t rc = FAILURE;
 
@@ -238,7 +245,10 @@ void aws_iot_task(void *param) {
     paramsQOS1.payload = (void *) cPayload;
     paramsQOS1.isRetained = 0;
 
-    while((NETWORK_ATTEMPTING_RECONNECT == rc || NETWORK_RECONNECTED == rc || SUCCESS == rc)) 
+    while(
+        (NETWORK_ATTEMPTING_RECONNECT == rc || 
+         NETWORK_RECONNECTED == rc || 
+         SUCCESS == rc)) 
     {
 
         //Max time the yield function will wait for read messages
@@ -248,21 +258,32 @@ void aws_iot_task(void *param) {
             continue;
         }
 
-        ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL));
+        //ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL));
 
-        vTaskDelay(10000 / portTICK_RATE_MS);
+        vTaskDelay(1000 / portTICK_RATE_MS);
 
-        sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS1)", i++);
-        paramsQOS1.payloadLen = strlen(cPayload);
-        rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS1);
-        if (rc == MQTT_REQUEST_TIMEOUT_ERROR) {
-            ESP_LOGW(TAG, "QOS1 publish ack not received.");
-            rc = SUCCESS;
+        if(xQueueReceive( xmitQueue, &msg, 0 ))
+        {
+            printf ("message received for MQTT: %s\n",msg->c_str());
+            delete msg;
         }
+
+        //sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS1)", i++);
+        //paramsQOS1.payloadLen = strlen(cPayload);
+        //rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS1);
+        //if (rc == MQTT_REQUEST_TIMEOUT_ERROR) {
+        //    ESP_LOGW(TAG, "QOS1 publish ack not received.");
+        //    rc = SUCCESS;
+        //}
     }
 
     ESP_LOGE(TAG, "An error occurred in the main loop.");
     abort();
+}
+
+uint8_t sendMQTTmsg(std::string *s)
+{
+    return xQueueSend(xmitQueue, &s, 0);
 }
 
 static void initialise_wifi(void)
@@ -289,12 +310,6 @@ static void initialise_wifi(void)
                                 };
 
 
-    //wifi_config_t wifi_config = {
-    //    .sta = {
-    //        .ssid = EXAMPLE_WIFI_SSID,
-    //        .password = EXAMPLE_WIFI_PASS,
-    //    },
-    //};
     ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
     ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
