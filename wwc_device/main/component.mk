@@ -12,3 +12,5 @@ $(COMPONENT_PATH)/certs/certificate.pem.crt $(COMPONENT_PATH)/certs/private.pem.
 	@echo "Missing PEM file $@. This file identifies the ESP32 to AWS for the example, see README for details."
 	exit 1
 endif
+
+CPPFLAGS += -D_GLIBCXX_USE_C99

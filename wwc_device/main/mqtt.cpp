@@ -260,9 +260,9 @@ void aws_iot_task(void *param) {
 
         //ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL));
 
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        //vTaskDelay(1000 / portTICK_RATE_MS);
 
-        if(xQueueReceive( xmitQueue, &msg, 0 ))
+        if(xQueueReceive( xmitQueue, &msg, 1000 ))
         {
             printf ("message received for MQTT: %s\n",msg->c_str());
             delete msg;
