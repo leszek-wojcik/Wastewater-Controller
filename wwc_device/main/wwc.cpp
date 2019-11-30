@@ -6,7 +6,8 @@
 #include "ActiveObject.h"
 #include "wwc.h"
 #include "stdio.h"
-#include <iostream>
+
+#include "cJSON.h"
 
 #define BLINK_GPIO (gpio_num_t)2
 
@@ -23,10 +24,10 @@ WWC::WWC():ActiveObject("WWC",2048,6)
     aWWCtmr =  createTimer (
                 [=] () { this->controlOnTmr(); },
 //                600000/portTICK_PERIOD_MS  ); //10 minutes
-               1000/portTICK_PERIOD_MS  ); //5 sec
+               5000/portTICK_PERIOD_MS  ); //5 sec
 }
 
-extern uint8_t sendMQTTmsg(std::string *);
+extern uint8_t sendMQTTmsg(cJSON *);
 
 
 void WWC::controlOnTmr()
@@ -63,13 +64,22 @@ void WWC::controlOnTmr()
 
 void WWC::updateControlPins()
 {
-    std::string *msg = new std::string("wwcCont ");
-    msg->append(std::to_string(wwcCounter));
-    msg->append(" update control pins:");
+    //std::string *msg = new std::string("wwcCont ");
+    //msg->append(std::to_string(wwcCounter));
+    //msg->append(" update control pins:");
 
-    if (areation) {msg->append(" areation");}
-    if (circulation) {msg->append(" circulation");}
-    std::cout<<*msg;
-    sendMQTTmsg(msg);
+    //if (areation) {msg->append(" areation");}
+    //if (circulation) {msg->append(" circulation");}
+
+    cJSON *json = NULL;
+
+    json = cJSON_CreateObject();
+    cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
+    cJSON_AddBoolToObject(json, "areation", areation);
+    cJSON_AddBoolToObject(json, "circulation", circulation);
+    cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
+
+  //  printf("json:\n%s",cJSON_Print(json));
+    sendMQTTmsg(json);
 }
 

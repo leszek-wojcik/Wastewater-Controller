@@ -31,6 +31,7 @@
 #include <string.h>
 
 #include <string>
+#include "cJSON.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -147,11 +148,8 @@ QueueHandle_t xmitQueue = NULL;
 void aws_iot_task(void *param) {
 
     char cPayload[100];
-    std::string * msg;
-    int32_t i = 0;
-
-    xmitQueue = xQueueCreate(20, sizeof(std::string *));
-
+    cJSON * msg;
+    xmitQueue = xQueueCreate(20, sizeof(cJSON *));
     IoT_Error_t rc = FAILURE;
 
     AWS_IoT_Client client;
@@ -159,7 +157,6 @@ void aws_iot_task(void *param) {
     IoT_Client_Connect_Params connectParams = iotClientConnectParamsDefault;
 
     IoT_Publish_Message_Params paramsQOS0;
-    IoT_Publish_Message_Params paramsQOS1;
 
     ESP_LOGI(TAG, "AWS IoT SDK Version %d.%d.%d-%s", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, VERSION_TAG);
 
@@ -216,7 +213,7 @@ void aws_iot_task(void *param) {
         abort();
     }
 
-    const char *TOPIC = "dupa";
+    const char *TOPIC = "wwc";
     const int TOPIC_LEN = strlen(TOPIC);
 
     ESP_LOGI(TAG, "Subscribing to %s...", TOPIC);
@@ -226,15 +223,9 @@ void aws_iot_task(void *param) {
         abort();
     }
 
-    sprintf(cPayload, "%s : %d ", "hello from SDK", i);
-
     paramsQOS0.qos = QOS0;
     paramsQOS0.payload = (void *) cPayload;
     paramsQOS0.isRetained = 0;
-
-    paramsQOS1.qos = QOS1;
-    paramsQOS1.payload = (void *) cPayload;
-    paramsQOS1.isRetained = 0;
 
     while(
         (NETWORK_ATTEMPTING_RECONNECT == rc || 
@@ -249,30 +240,20 @@ void aws_iot_task(void *param) {
             continue;
         }
 
-        //ESP_LOGI(TAG, "Stack remaining for task '%s' is %d bytes", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL));
-
-        //vTaskDelay(1000 / portTICK_RATE_MS);
-
         if(xQueueReceive( xmitQueue, &msg, 1000 ))
         {
-            printf ("message received for MQTT: %s\n",msg->c_str());
-            delete msg;
+            sprintf(cPayload,"%s", cJSON_Print(msg));
+            paramsQOS0.payloadLen = strlen(cPayload);
+            aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
+            cJSON_Delete(msg);
         }
-
-        //sprintf(cPayload, "%s : %d ", "hello from ESP32 (QOS1)", i++);
-        //paramsQOS1.payloadLen = strlen(cPayload);
-        //rc = aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS1);
-        //if (rc == MQTT_REQUEST_TIMEOUT_ERROR) {
-        //    ESP_LOGW(TAG, "QOS1 publish ack not received.");
-        //    rc = SUCCESS;
-        //}
     }
 
     ESP_LOGE(TAG, "An error occurred in the main loop.");
     abort();
 }
 
-uint8_t sendMQTTmsg(std::string *s)
+uint8_t sendMQTTmsg(cJSON *s)
 {
     return xQueueSend(xmitQueue, &s, 0);
 }
