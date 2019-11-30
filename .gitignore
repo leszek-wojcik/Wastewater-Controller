@@ -5,6 +5,8 @@ wwc_device/build/*
 wwc_device/build
 wwc_device/sdkconfig
 wwc_device/sdkconfig.old
+wwc_device/sdkconfig.*
+cscope.files
 
 cloud_controller/certs/*
 
