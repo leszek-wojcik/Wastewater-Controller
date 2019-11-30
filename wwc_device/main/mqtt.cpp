@@ -52,15 +52,6 @@
 
 static const char *TAG = "subpub";
 
-/* The examples use simple WiFi configuration that you can set via
-   'make menuconfig'.
-
-   If you'd rather not, just change the below entries to strings with
-   the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
-*/
-#define EXAMPLE_WIFI_SSID CONFIG_WIFI_SSID
-#define EXAMPLE_WIFI_PASS CONFIG_WIFI_PASSWORD
-
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
 
@@ -200,8 +191,8 @@ void aws_iot_task(void *param) {
     connectParams.isCleanSession = true;
     connectParams.MQTTVersion = MQTT_3_1_1;
     /* Client ID is set in the menuconfig of the example */
-    connectParams.pClientID = CONFIG_AWS_EXAMPLE_CLIENT_ID;
-    connectParams.clientIDLen = (uint16_t) strlen(CONFIG_AWS_EXAMPLE_CLIENT_ID);
+    connectParams.pClientID = CONFIG_AWS_CLIENT_ID;
+    connectParams.clientIDLen = (uint16_t) strlen(CONFIG_AWS_CLIENT_ID);
     connectParams.isWillMsgPresent = false;
 
     ESP_LOGI(TAG, "Connecting to AWS...");
@@ -297,8 +288,8 @@ static void initialise_wifi(void)
 
     wifi_config_t wifi_config = { .sta = 
                                     {
-                                        EXAMPLE_WIFI_SSID,
-                                        EXAMPLE_WIFI_PASS,
+                                        CONFIG_WIFI_SSID,
+                                        CONFIG_WIFI_PASSWORD,
                                         WIFI_FAST_SCAN,
                                         false,
                                         {'0','0','0','0','0','0'},
