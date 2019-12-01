@@ -1,6 +1,7 @@
-class WiFi: public ActiveObject
+class WiFi
 {
     private:
+        void initialise_wifi(void);
     public:
         WiFi();
 };

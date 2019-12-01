@@ -51,16 +51,13 @@
 #include "aws_iot_version.h"
 #include "aws_iot_mqtt_client_interface.h"
 
+#include "ActiveObject.h"
+#include "MethodRequest.h"
+#include "wwc.h"
+#include "wifi.h"
+
+
 static const char *TAG = "subpub";
-
-/* FreeRTOS event group to signal when we are connected & ready to make a request */
-static EventGroupHandle_t wifi_event_group;
-
-/* The event group allows multiple bits for each event,
-   but we only care about one event - are we connected
-   to the AP with an IP? */
-const int CONNECTED_BIT = BIT0;
-
 
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
@@ -73,50 +70,41 @@ extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 char HostAddress[255] = AWS_IOT_MQTT_HOST;
 uint32_t port = AWS_IOT_MQTT_PORT;
 
-static esp_err_t event_handler(void *ctx, system_event_t *event)
+void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, 
+                                    char *topicName, 
+                                    uint16_t topicNameLen, 
+                                    IoT_Publish_Message_Params *params, 
+                                    void *pData) 
 {
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently
-           auto-reassociate. */
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, char *topicName, uint16_t topicNameLen, IoT_Publish_Message_Params *params, void *pData) 
-{
-    ESP_LOGI(TAG, "!Subscribe callback");
-    ESP_LOGI(TAG, "%.*s\t%.*s", topicNameLen, topicName, (int) params->payloadLen, (char *)params->payload);
+    ESP_LOGI(TAG, "Received from cloud");
+    ESP_LOGI(TAG, "%.*s\t%.*s", topicNameLen, 
+                                topicName, 
+                                (int) params->payloadLen, 
+                                (char *)params->payload);
 
 }
 
-void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) {
+void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) 
+{
     ESP_LOGW(TAG, "MQTT Disconnect");
     IoT_Error_t rc = FAILURE;
 
-    if(NULL == pClient) {
-        return;
-    }
+    if(NULL == pClient) { return; }
 
-    if(aws_iot_is_autoreconnect_enabled(pClient)) {
+    if(aws_iot_is_autoreconnect_enabled(pClient)) 
+    {
         ESP_LOGI(TAG, "Auto Reconnect is enabled, Reconnecting attempt will start now");
-    } else {
+    } 
+    else 
+    {
         ESP_LOGW(TAG, "Auto Reconnect not enabled. Starting manual reconnect...");
         rc = aws_iot_mqtt_attempt_reconnect(pClient);
-        if(NETWORK_RECONNECTED == rc) {
+        if(NETWORK_RECONNECTED == rc) 
+        {
             ESP_LOGW(TAG, "Manual Reconnect Successful");
-        } else {
+        } 
+        else 
+        {
             ESP_LOGW(TAG, "Manual Reconnect Failed - %d", rc);
         }
     }
@@ -124,21 +112,28 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) {
 
 
 QueueHandle_t xmitQueue = NULL;
+AWS_IoT_Client client;
+char cPayload[100];
+IoT_Publish_Message_Params paramsQOS0;
+const char *TOPIC = "wwc";
+const int TOPIC_LEN = strlen(TOPIC);
+bool wifi_operational = false;
 
 void aws_iot_task(void *param) {
 
-    char cPayload[100];
-    cJSON * msg;
-    xmitQueue = xQueueCreate(20, sizeof(cJSON *));
+    MRequest * msg;
+    xmitQueue = xQueueCreate(20, sizeof(MRequest *));
     IoT_Error_t rc = FAILURE;
 
-    AWS_IoT_Client client;
     IoT_Client_Init_Params mqttInitParams = iotClientInitParamsDefault;
     IoT_Client_Connect_Params connectParams = iotClientConnectParamsDefault;
 
-    IoT_Publish_Message_Params paramsQOS0;
 
-    ESP_LOGI(TAG, "AWS IoT SDK Version %d.%d.%d-%s", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH, VERSION_TAG);
+    ESP_LOGI(TAG, "AWS IoT SDK Version %d.%d.%d-%s", 
+                    VERSION_MAJOR, 
+                    VERSION_MINOR, 
+                    VERSION_PATCH, 
+                    VERSION_TAG);
 
     mqttInitParams.enableAutoReconnect = false; // We enable this later below
     mqttInitParams.pHostURL = HostAddress;
@@ -155,50 +150,56 @@ void aws_iot_task(void *param) {
     mqttInitParams.disconnectHandlerData = NULL;
 
     rc = aws_iot_mqtt_init(&client, &mqttInitParams);
-    if(SUCCESS != rc) {
+    if(SUCCESS != rc) 
+    {
         ESP_LOGE(TAG, "aws_iot_mqtt_init returned error : %d ", rc);
         abort();
     }
 
-    /* Wait for WiFI to show as connected */
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY);
+    do 
+    {
+        xQueueReceive( xmitQueue, &msg, portMAX_DELAY );
+        (*(msg->func))();
+        delete msg;
+    }while(  wifi_operational == false);
 
     connectParams.keepAliveIntervalInSec = 10;
     connectParams.isCleanSession = true;
     connectParams.MQTTVersion = MQTT_3_1_1;
-    /* Client ID is set in the menuconfig of the example */
     connectParams.pClientID = CONFIG_AWS_CLIENT_ID;
     connectParams.clientIDLen = (uint16_t) strlen(CONFIG_AWS_CLIENT_ID);
     connectParams.isWillMsgPresent = false;
 
     ESP_LOGI(TAG, "Connecting to AWS...");
-    do {
+    do 
+    {
         rc = aws_iot_mqtt_connect(&client, &connectParams);
-        if(SUCCESS != rc) {
+        if(SUCCESS != rc) 
+        {
             ESP_LOGE(TAG, "Error(%d) connecting to %s:%d", rc, mqttInitParams.pHostURL, mqttInitParams.port);
             ESP_LOGE(TAG, " client id %s", connectParams.pClientID );
             vTaskDelay(10000 / portTICK_RATE_MS);
         }
     } while(SUCCESS != rc);
 
-    /*
-     * Enable Auto Reconnect functionality. Minimum and Maximum time of Exponential backoff are set in aws_iot_config.h
-     *  #AWS_IOT_MQTT_MIN_RECONNECT_WAIT_INTERVAL
-     *  #AWS_IOT_MQTT_MAX_RECONNECT_WAIT_INTERVAL
-     */
     rc = aws_iot_mqtt_autoreconnect_set_status(&client, true);
-    if(SUCCESS != rc) {
+    if(SUCCESS != rc) 
+    {
         ESP_LOGE(TAG, "Unable to set Auto Reconnect to true - %d", rc);
         abort();
     }
 
-    const char *TOPIC = "wwc";
-    const int TOPIC_LEN = strlen(TOPIC);
 
     ESP_LOGI(TAG, "Subscribing to %s...", TOPIC);
-    rc = aws_iot_mqtt_subscribe(&client, TOPIC, TOPIC_LEN, QOS0, iot_subscribe_callback_handler, NULL);
-    if(SUCCESS != rc) {
+    rc = aws_iot_mqtt_subscribe(&client, 
+                                TOPIC, 
+                                TOPIC_LEN, 
+                                QOS0, 
+                                iot_subscribe_callback_handler, 
+                                NULL);
+
+    if(SUCCESS != rc) 
+    {
         ESP_LOGE(TAG, "Error subscribing : %d ", rc);
         abort();
     }
@@ -222,10 +223,9 @@ void aws_iot_task(void *param) {
 
         if(xQueueReceive( xmitQueue, &msg, 1000 ))
         {
-            sprintf(cPayload,"%s", cJSON_Print(msg));
-            paramsQOS0.payloadLen = strlen(cPayload);
-            aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
-            cJSON_Delete(msg);
+            (*(msg->func))();
+            delete msg;
+
         }
     }
 
@@ -235,44 +235,51 @@ void aws_iot_task(void *param) {
 
 uint8_t sendMQTTmsg(cJSON *s)
 {
-    return xQueueSend(xmitQueue, &s, 0);
+
+    auto f = [=] () 
+        {
+            if (wifi_operational == false)
+            {
+                printf("WIFI not operational dropping mqtt msg\n");
+                cJSON_Delete(s);
+            }
+            else
+            {
+                sprintf(cPayload,"%s", cJSON_Print(s));
+                paramsQOS0.payloadLen = strlen(cPayload);
+//                printf("json at aws context:\n%s",cJSON_Print(s));
+                aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
+                cJSON_Delete(s);
+            }
+        };
+
+    auto mr = new MRequest(NULL, f);
+    return xQueueSend(xmitQueue, &mr, 0);
 }
 
-static void initialise_wifi(void)
+void wifiConnected()
 {
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+    auto f = [=] () 
+        {
+            wifi_operational = true;
+        };
 
-    wifi_config_t wifi_config = { .sta = 
-                                    {
-                                        CONFIG_WIFI_SSID,
-                                        CONFIG_WIFI_PASSWORD,
-                                        WIFI_FAST_SCAN,
-                                        false,
-                                        {'0','0','0','0','0','0'},
-                                        0,
-                                        0,
-                                        WIFI_CONNECT_AP_BY_SIGNAL,
-                                        {0, WIFI_AUTH_OPEN}
-                                    }
-                                };
+    auto mr = new MRequest(NULL, f);
+    xQueueSend(xmitQueue, &mr, 0);
+}
 
+void wifiDisconnected()
+{
+    auto f = [=] () 
+        {
+            wifi_operational = false;
+        };
 
-    ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
+    auto mr = new MRequest(NULL, f);
+    xQueueSend(xmitQueue, &mr, 0);
 }
 
 extern "C" void app_main();
-
-#include "ActiveObject.h"
-#include "wwc.h"
-#include "wifi.h"
 
 
 WWC *aWWC;
@@ -295,7 +302,6 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
-    initialise_wifi();
     xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
     createActiveObjects();
 }

@@ -16,6 +16,7 @@ WWC::WWC():ActiveObject("WWC",2048,6)
 {
     ESP_LOGI("WWC", "init");
 
+    wwcCounter = 0;
     areation = false;
     circulation = false;
 
@@ -42,7 +43,7 @@ void WWC::controlOnTmr()
     disableCirculation();
     disableAreation();
     
-    if (wwcCounter == 144)
+    if (wwcCounter >= 144)
     {
         wwcCounter = 0;
     }
@@ -65,12 +66,6 @@ void WWC::controlOnTmr()
 
 void WWC::updateControlPins()
 {
-    //std::string *msg = new std::string("wwcCont ");
-    //msg->append(std::to_string(wwcCounter));
-    //msg->append(" update control pins:");
-
-    //if (areation) {msg->append(" areation");}
-    //if (circulation) {msg->append(" circulation");}
 
     cJSON *json = NULL;
 
@@ -79,8 +74,6 @@ void WWC::updateControlPins()
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
     cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
-
-  //  printf("json:\n%s",cJSON_Print(json));
     sendMQTTmsg(json);
 }
 
