@@ -5,6 +5,7 @@
 
 #include "ActiveObject.h"
 #include "wwc.h"
+#include "wifi.h"
 #include "stdio.h"
 
 #include "cJSON.h"

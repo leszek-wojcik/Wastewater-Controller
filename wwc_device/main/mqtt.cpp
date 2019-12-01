@@ -62,18 +62,6 @@ static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 
 
-/* CA Root certificate, device ("Thing") certificate and device
- * ("Thing") key.
-
-   Example can be configured one of two ways:
-
-   "Embedded Certs" are loaded from files in "certs/" and embedded into the app binary.
-
-   "Filesystem Certs" are loaded from the filesystem (SD card, etc.)
-
-   See example README for more details.
-*/
-
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
 extern const uint8_t certificate_pem_crt_start[] asm("_binary_certificate_pem_crt_start");
@@ -82,16 +70,8 @@ extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start"
 extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
 
-/**
- * @brief Default MQTT HOST URL is pulled from the aws_iot_config.h
- */
 char HostAddress[255] = AWS_IOT_MQTT_HOST;
-
-/**
- * @brief Default MQTT port is pulled from the aws_iot_config.h
- */
 uint32_t port = AWS_IOT_MQTT_PORT;
-
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -114,8 +94,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     return ESP_OK;
 }
 
-void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, char *topicName, uint16_t topicNameLen,
-                                    IoT_Publish_Message_Params *params, void *pData) {
+void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, char *topicName, uint16_t topicNameLen, IoT_Publish_Message_Params *params, void *pData) 
+{
     ESP_LOGI(TAG, "!Subscribe callback");
     ESP_LOGI(TAG, "%.*s\t%.*s", topicNameLen, topicName, (int) params->payloadLen, (char *)params->payload);
 
@@ -292,13 +272,16 @@ extern "C" void app_main();
 
 #include "ActiveObject.h"
 #include "wwc.h"
+#include "wifi.h"
 
 
 WWC *aWWC;
+WiFi *aWiFi;
 
 void createActiveObjects()
 {
     aWWC = new WWC();
+    aWiFi = new WiFi();
 }
 
 
