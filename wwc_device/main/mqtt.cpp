@@ -55,6 +55,7 @@
 #include "MethodRequest.h"
 #include "wwc.h"
 #include "wifi.h"
+#include "mqtt.h"
 
 
 static const char *TAG = "subpub";
@@ -111,29 +112,17 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data)
 }
 
 
-QueueHandle_t xmitQueue = NULL;
-AWS_IoT_Client client;
-char cPayload[100];
-IoT_Publish_Message_Params paramsQOS0;
-const char *TOPIC = "wwc";
-const int TOPIC_LEN = strlen(TOPIC);
-bool wifi_operational = false;
-
-void aws_iot_task(void *param) {
-
-    MRequest * msg;
+MQTT::MQTT()
+{
     xmitQueue = xQueueCreate(20, sizeof(MRequest *));
-    IoT_Error_t rc = FAILURE;
+    initParams();
+}
 
-    IoT_Client_Init_Params mqttInitParams = iotClientInitParamsDefault;
-    IoT_Client_Connect_Params connectParams = iotClientConnectParamsDefault;
-
-
-    ESP_LOGI(TAG, "AWS IoT SDK Version %d.%d.%d-%s", 
-                    VERSION_MAJOR, 
-                    VERSION_MINOR, 
-                    VERSION_PATCH, 
-                    VERSION_TAG);
+void MQTT::initParams()
+{
+    wifi_operational = false;
+    mqttInitParams = iotClientInitParamsDefault;
+    connectParams = iotClientConnectParamsDefault;
 
     mqttInitParams.enableAutoReconnect = false; // We enable this later below
     mqttInitParams.pHostURL = HostAddress;
@@ -149,7 +138,33 @@ void aws_iot_task(void *param) {
     mqttInitParams.disconnectHandler = disconnectCallbackHandler;
     mqttInitParams.disconnectHandlerData = NULL;
 
-    rc = aws_iot_mqtt_init(&client, &mqttInitParams);
+    connectParams.keepAliveIntervalInSec = 10;
+    connectParams.isCleanSession = true;
+    connectParams.MQTTVersion = MQTT_3_1_1;
+    connectParams.pClientID = CONFIG_AWS_CLIENT_ID;
+    connectParams.clientIDLen = (uint16_t) strlen(CONFIG_AWS_CLIENT_ID);
+    connectParams.isWillMsgPresent = false;
+
+    paramsQOS0.qos = QOS0;
+    paramsQOS0.payload = (void *) cPayload;
+    paramsQOS0.isRetained = 0;
+}
+
+
+void MQTT::mainLoop()
+{
+
+    MRequest * msg;
+    IoT_Error_t rc = FAILURE;
+
+
+    ESP_LOGI(TAG, "AWS IoT SDK Version %d.%d.%d-%s", 
+                    VERSION_MAJOR, 
+                    VERSION_MINOR, 
+                    VERSION_PATCH, 
+                    VERSION_TAG);
+
+    rc = aws_iot_mqtt_init(&this->client, &this->mqttInitParams);
     if(SUCCESS != rc) 
     {
         ESP_LOGE(TAG, "aws_iot_mqtt_init returned error : %d ", rc);
@@ -163,20 +178,15 @@ void aws_iot_task(void *param) {
         delete msg;
     }while(  wifi_operational == false);
 
-    connectParams.keepAliveIntervalInSec = 10;
-    connectParams.isCleanSession = true;
-    connectParams.MQTTVersion = MQTT_3_1_1;
-    connectParams.pClientID = CONFIG_AWS_CLIENT_ID;
-    connectParams.clientIDLen = (uint16_t) strlen(CONFIG_AWS_CLIENT_ID);
-    connectParams.isWillMsgPresent = false;
 
     ESP_LOGI(TAG, "Connecting to AWS...");
     do 
     {
-        rc = aws_iot_mqtt_connect(&client, &connectParams);
+        rc = aws_iot_mqtt_connect(&this->client, &this->connectParams);
         if(SUCCESS != rc) 
         {
-            ESP_LOGE(TAG, "Error(%d) connecting to %s:%d", rc, mqttInitParams.pHostURL, mqttInitParams.port);
+            ESP_LOGE(TAG, "Error(%d) connecting to %s:%d", 
+                rc, mqttInitParams.pHostURL, mqttInitParams.port);
             ESP_LOGE(TAG, " client id %s", connectParams.pClientID );
             vTaskDelay(10000 / portTICK_RATE_MS);
         }
@@ -204,10 +214,6 @@ void aws_iot_task(void *param) {
         abort();
     }
 
-    paramsQOS0.qos = QOS0;
-    paramsQOS0.payload = (void *) cPayload;
-    paramsQOS0.isRetained = 0;
-
     while(
         (NETWORK_ATTEMPTING_RECONNECT == rc || 
          NETWORK_RECONNECTED == rc || 
@@ -233,57 +239,57 @@ void aws_iot_task(void *param) {
     abort();
 }
 
+WWC *aWWC;
+WiFi *aWiFi;
+MQTT *aMQTT;
+
 uint8_t sendMQTTmsg(cJSON *s)
 {
 
     auto f = [=] () 
         {
-            if (wifi_operational == false)
+            if (aMQTT->wifi_operational == false)
             {
                 printf("WIFI not operational dropping mqtt msg\n");
                 cJSON_Delete(s);
             }
             else
             {
-                sprintf(cPayload,"%s", cJSON_Print(s));
-                paramsQOS0.payloadLen = strlen(cPayload);
+                sprintf(aMQTT->cPayload,"%s", cJSON_Print(s));
+                aMQTT->paramsQOS0.payloadLen = strlen(aMQTT->cPayload);
 //                printf("json at aws context:\n%s",cJSON_Print(s));
-                aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
+                aws_iot_mqtt_publish(&aMQTT->client, TOPIC, TOPIC_LEN, &aMQTT->paramsQOS0);
                 cJSON_Delete(s);
             }
         };
 
     auto mr = new MRequest(NULL, f);
-    return xQueueSend(xmitQueue, &mr, 0);
+    return xQueueSend(aMQTT->xmitQueue, &mr, 0);
 }
 
 void wifiConnected()
 {
     auto f = [=] () 
         {
-            wifi_operational = true;
+            aMQTT->wifi_operational = true;
         };
 
     auto mr = new MRequest(NULL, f);
-    xQueueSend(xmitQueue, &mr, 0);
+    xQueueSend(aMQTT->xmitQueue, &mr, 0);
 }
 
 void wifiDisconnected()
 {
     auto f = [=] () 
         {
-            wifi_operational = false;
+            aMQTT->wifi_operational = false;
         };
 
     auto mr = new MRequest(NULL, f);
-    xQueueSend(xmitQueue, &mr, 0);
+    xQueueSend(aMQTT->xmitQueue, &mr, 0);
 }
 
 extern "C" void app_main();
-
-
-WWC *aWWC;
-WiFi *aWiFi;
 
 void createActiveObjects()
 {
@@ -291,6 +297,10 @@ void createActiveObjects()
     aWiFi = new WiFi();
 }
 
+void aws_iot_task(void *param) 
+{
+    aMQTT->mainLoop();
+}
 
 void app_main()
 {
@@ -302,6 +312,7 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
+    aMQTT = new MQTT();
     xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
     createActiveObjects();
 }
