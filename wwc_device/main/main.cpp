@@ -18,12 +18,9 @@
 #include "wifi.h"
 #include "mqtt.h"
 
-extern "C" void app_main();
-
 WWC *aWWC;
 WiFi *aWiFi;
 MQTT *aMQTT;
-
 
 void createActiveObjects()
 {
@@ -37,16 +34,21 @@ void aws_iot_task(void *param)
     aMQTT->mainLoop();
 }
 
-void app_main()
+extern "C" 
 {
-    // Initialize NVS.
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
+    void app_main()
+    {
+        // Initialize NVS.
+        esp_err_t err = nvs_flash_init();
+        if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+            ESP_ERROR_CHECK(nvs_flash_erase());
+            err = nvs_flash_init();
+        }
+        ESP_ERROR_CHECK( err );
 
-    createActiveObjects();
-    xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
+        createActiveObjects();
+
+        aMQTT->executeMethod ( [=] () { aMQTT->mainLoop(); } );
+       // xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
+    }
 }

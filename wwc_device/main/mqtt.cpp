@@ -117,13 +117,6 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data)
     }
 }
 
-
-MQTT::MQTT()
-{
-    xmitQueue = xQueueCreate(20, sizeof(MRequest *));
-    initParams();
-}
-
 void MQTT::initParams()
 {
     wifi_operational = false;
@@ -160,6 +153,7 @@ void MQTT::initParams()
 void MQTT::mainLoop()
 {
 
+    printf ("!!!!main loop\n");
     MRequest * msg;
     IoT_Error_t rc = FAILURE;
 
@@ -179,7 +173,7 @@ void MQTT::mainLoop()
 
     do 
     {
-        xQueueReceive( xmitQueue, &msg, portMAX_DELAY );
+        xQueueReceive( mrQueue, &msg, portMAX_DELAY );
         (*(msg->func))();
         delete msg;
     }while(  wifi_operational == false);
@@ -233,7 +227,7 @@ void MQTT::mainLoop()
             continue;
         }
 
-        if(xQueueReceive( xmitQueue, &msg, 1000 ))
+        if(xQueueReceive( mrQueue, &msg, 1000 ))
         {
             (*(msg->func))();
             delete msg;
@@ -266,7 +260,7 @@ uint8_t sendMQTTmsg(cJSON *s)
         };
 
     auto mr = new MRequest(NULL, f);
-    return xQueueSend(aMQTT->xmitQueue, &mr, 0);
+    return xQueueSend(aMQTT->mrQueue, &mr, 0);
 }
 
 void wifiConnected()
@@ -277,7 +271,7 @@ void wifiConnected()
         };
 
     auto mr = new MRequest(NULL, f);
-    xQueueSend(aMQTT->xmitQueue, &mr, 0);
+    xQueueSend(aMQTT->mrQueue, &mr, 0);
 }
 
 void wifiDisconnected()
@@ -288,6 +282,6 @@ void wifiDisconnected()
         };
 
     auto mr = new MRequest(NULL, f);
-    xQueueSend(aMQTT->xmitQueue, &mr, 0);
+    xQueueSend(aMQTT->mrQueue, &mr, 0);
 }
 

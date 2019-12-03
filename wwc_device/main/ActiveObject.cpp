@@ -14,8 +14,6 @@ ActiveObject::ActiveObject(string name, uint16_t stackSize , UBaseType_t priorit
 
     mrQueue = xQueueCreate(20,sizeof(MRequest*));
 
-    printf("xqueuecreate, task: %x pxMutexHolder: %x ", (int) xTaskGetCurrentTaskHandle(), (int) xQueueGetMutexHolder(mrQueue));
-
     if (mrQueue == NULL)
     {
         printf("MR Queue was not created \r\n ");

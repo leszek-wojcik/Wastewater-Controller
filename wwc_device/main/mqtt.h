@@ -1,9 +1,16 @@
-class MQTT
+#include "ActiveObject.h"
+
+class MQTT: public ActiveObject
 {
     private:
 
     public:
-        MQTT();
+        MQTT():ActiveObject("MQTT", 9216, 5)
+        {
+            xmitQueue = xQueueCreate(20, sizeof(MRequest *));
+            initParams();
+        }
+
         void initParams();
         void mainLoop();
 
