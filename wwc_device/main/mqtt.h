@@ -1,6 +1,3 @@
-const char *TOPIC = "wwc";
-const int TOPIC_LEN = strlen(TOPIC);
-
 class MQTT
 {
     private:

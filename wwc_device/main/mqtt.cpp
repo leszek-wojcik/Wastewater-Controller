@@ -59,6 +59,9 @@
 
 
 static const char *TAG = "subpub";
+const char *TOPIC = "wwc";
+const int TOPIC_LEN = strlen(TOPIC);
+
 
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
@@ -67,6 +70,9 @@ extern const uint8_t certificate_pem_crt_end[] asm("_binary_certificate_pem_crt_
 extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start");
 extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
+extern WWC *aWWC;
+extern WiFi *aWiFi;
+extern MQTT *aMQTT;
 
 char HostAddress[255] = AWS_IOT_MQTT_HOST;
 uint32_t port = AWS_IOT_MQTT_PORT;
@@ -239,10 +245,6 @@ void MQTT::mainLoop()
     abort();
 }
 
-WWC *aWWC;
-WiFi *aWiFi;
-MQTT *aMQTT;
-
 uint8_t sendMQTTmsg(cJSON *s)
 {
 
@@ -289,30 +291,3 @@ void wifiDisconnected()
     xQueueSend(aMQTT->xmitQueue, &mr, 0);
 }
 
-extern "C" void app_main();
-
-void createActiveObjects()
-{
-    aWWC = new WWC();
-    aWiFi = new WiFi();
-}
-
-void aws_iot_task(void *param) 
-{
-    aMQTT->mainLoop();
-}
-
-void app_main()
-{
-    // Initialize NVS.
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
-
-    aMQTT = new MQTT();
-    xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
-    createActiveObjects();
-}

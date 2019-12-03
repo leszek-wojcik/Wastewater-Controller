@@ -1,3 +1,5 @@
+#include "ActiveObject.h"
+
 class WWC : public ActiveObject
 {
     private:
