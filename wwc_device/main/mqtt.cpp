@@ -1,28 +1,3 @@
-/*
- * Copyright 2010-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * Additions Copyright 2016 Espressif Systems (Shanghai) PTE LTD
- *
- * Licensed under the Apache License, Version 2.0 (the "License").
- * You may not use this file except in compliance with the License.
- * A copy of the License is located at
- *
- *  http://aws.amazon.com/apache2.0
- *
- * or in the "license" file accompanying this file. This file is distributed
- * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing
- * permissions and limitations under the License.
- */
-/**
- * @file subscribe_publish_sample.c
- * @brief simple MQTT publish and subscribe on the same topic
- *
- * This example takes the parameters from the build configuration and establishes a connection to the AWS IoT MQTT Platform.
- * It subscribes and publishes to the same topic - "test_topic/esp32"
- *
- * Some setup is required. See example README for details.
- *
- */
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -62,6 +37,7 @@ static const char *TAG = "subpub";
 const char *TOPIC = "wwc";
 const int TOPIC_LEN = strlen(TOPIC);
 
+MQTT* MQTT::instance = NULL;
 
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
@@ -70,9 +46,6 @@ extern const uint8_t certificate_pem_crt_end[] asm("_binary_certificate_pem_crt_
 extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start");
 extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
-extern WWC *aWWC;
-extern WiFi *aWiFi;
-extern MQTT *aMQTT;
 
 char HostAddress[255] = AWS_IOT_MQTT_HOST;
 uint32_t port = AWS_IOT_MQTT_PORT;
@@ -153,18 +126,12 @@ void MQTT::initParams()
 void MQTT::mainLoop()
 {
 
-    printf ("!!!!main loop\n");
     MRequest * msg;
     IoT_Error_t rc = FAILURE;
 
 
-    ESP_LOGI(TAG, "AWS IoT SDK Version %d.%d.%d-%s", 
-                    VERSION_MAJOR, 
-                    VERSION_MINOR, 
-                    VERSION_PATCH, 
-                    VERSION_TAG);
-
     rc = aws_iot_mqtt_init(&this->client, &this->mqttInitParams);
+
     if(SUCCESS != rc) 
     {
         ESP_LOGE(TAG, "aws_iot_mqtt_init returned error : %d ", rc);
@@ -176,7 +143,8 @@ void MQTT::mainLoop()
         xQueueReceive( mrQueue, &msg, portMAX_DELAY );
         (*(msg->func))();
         delete msg;
-    }while(  wifi_operational == false);
+    }
+    while( wifi_operational == false);
 
 
     ESP_LOGI(TAG, "Connecting to AWS...");
@@ -190,7 +158,8 @@ void MQTT::mainLoop()
             ESP_LOGE(TAG, " client id %s", connectParams.pClientID );
             vTaskDelay(10000 / portTICK_RATE_MS);
         }
-    } while(SUCCESS != rc);
+    } 
+    while(SUCCESS != rc);
 
     rc = aws_iot_mqtt_autoreconnect_set_status(&client, true);
     if(SUCCESS != rc) 

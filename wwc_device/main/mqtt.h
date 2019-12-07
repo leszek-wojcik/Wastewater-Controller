@@ -1,21 +1,28 @@
 #include "cJSON.h"
+#include "aws_iot_mqtt_client_interface.h"
 #include "ActiveObject.h"
 
 class MQTT: public ActiveObject
 {
     private:
+        static MQTT* instance;
+        
 
     public:
         MQTT():ActiveObject("MQTT", 9216, 5)
         {
-            xmitQueue = xQueueCreate(20, sizeof(MRequest *));
             initParams();
+            instance = this;
+        }
+
+        static MQTT* getInstance()
+        {
+            return instance;
         }
 
         void initParams();
         void mainLoop();
 
-        QueueHandle_t xmitQueue = NULL;
         AWS_IoT_Client client;
         char cPayload[100];
 

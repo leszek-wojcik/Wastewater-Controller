@@ -3,7 +3,6 @@
 #include "esp_event_loop.h"
 #include "esp_log.h"
 
-#include "aws_iot_mqtt_client_interface.h"
 
 #include "ActiveObject.h"
 #include "wwc.h"
@@ -14,8 +13,6 @@
 #include "cJSON.h"
 
 #define BLINK_GPIO (gpio_num_t)2
-
-extern MQTT *aMQTT;
 
 WWC::WWC():ActiveObject("WWC",2048,6)
 {
@@ -76,6 +73,6 @@ void WWC::updateControlPins()
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
     cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
-    aMQTT->sendMQTTmsg(json);
+    MQTT::getInstance()->sendMQTTmsg(json);
 }
 

@@ -6,8 +6,6 @@
 #include "ActiveObject.h"
 #include "wwc.h"
 #include "wifi.h"
-
-#include "aws_iot_mqtt_client_interface.h"
 #include "mqtt.h"
 #include "stdio.h"
 
@@ -20,21 +18,23 @@ WiFi::WiFi()
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
 
-    extern MQTT *aMQTT;
+    switch(event->event_id) 
+    {
+        case SYSTEM_EVENT_STA_START:
+            esp_wifi_connect();
+            break;
 
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        aMQTT->wifiConnected();
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        aMQTT->wifiDisconnected();
-        esp_wifi_connect();
-        break;
-    default:
-        break;
+        case SYSTEM_EVENT_STA_GOT_IP:
+            MQTT::getInstance()->wifiConnected();
+            break;
+
+        case SYSTEM_EVENT_STA_DISCONNECTED:
+            MQTT::getInstance()->wifiDisconnected();
+            esp_wifi_connect();
+            break;
+
+        default:
+            break;
     }
     return ESP_OK;
 }
