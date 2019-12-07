@@ -239,49 +239,49 @@ void MQTT::mainLoop()
     abort();
 }
 
-uint8_t sendMQTTmsg(cJSON *s)
+uint8_t MQTT::sendMQTTmsg(cJSON *s)
 {
 
     auto f = [=] () 
         {
-            if (aMQTT->wifi_operational == false)
+            if (wifi_operational == false)
             {
                 printf("WIFI not operational dropping mqtt msg\n");
                 cJSON_Delete(s);
             }
             else
             {
-                sprintf(aMQTT->cPayload,"%s", cJSON_Print(s));
-                aMQTT->paramsQOS0.payloadLen = strlen(aMQTT->cPayload);
+                sprintf(cPayload,"%s", cJSON_Print(s));
+                paramsQOS0.payloadLen = strlen(cPayload);
 //                printf("json at aws context:\n%s",cJSON_Print(s));
-                aws_iot_mqtt_publish(&aMQTT->client, TOPIC, TOPIC_LEN, &aMQTT->paramsQOS0);
+                aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
                 cJSON_Delete(s);
             }
         };
 
     auto mr = new MRequest(NULL, f);
-    return xQueueSend(aMQTT->mrQueue, &mr, 0);
+    return xQueueSend(mrQueue, &mr, 0);
 }
 
-void wifiConnected()
+void MQTT::wifiConnected()
 {
     auto f = [=] () 
         {
-            aMQTT->wifi_operational = true;
+            wifi_operational = true;
         };
 
     auto mr = new MRequest(NULL, f);
-    xQueueSend(aMQTT->mrQueue, &mr, 0);
+    xQueueSend(mrQueue, &mr, 0);
 }
 
-void wifiDisconnected()
+void MQTT::wifiDisconnected()
 {
     auto f = [=] () 
         {
-            aMQTT->wifi_operational = false;
+            wifi_operational = false;
         };
 
     auto mr = new MRequest(NULL, f);
-    xQueueSend(aMQTT->mrQueue, &mr, 0);
+    xQueueSend(mrQueue, &mr, 0);
 }
 

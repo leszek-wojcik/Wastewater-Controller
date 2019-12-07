@@ -3,14 +3,19 @@
 #include "esp_event_loop.h"
 #include "esp_log.h"
 
+#include "aws_iot_mqtt_client_interface.h"
+
 #include "ActiveObject.h"
 #include "wwc.h"
 #include "wifi.h"
 #include "stdio.h"
+#include "mqtt.h"
 
 #include "cJSON.h"
 
 #define BLINK_GPIO (gpio_num_t)2
+
+extern MQTT *aMQTT;
 
 WWC::WWC():ActiveObject("WWC",2048,6)
 {
@@ -28,9 +33,6 @@ WWC::WWC():ActiveObject("WWC",2048,6)
 //                600000/portTICK_PERIOD_MS  ); //10 minutes
                5000/portTICK_PERIOD_MS  ); //5 sec
 }
-
-extern uint8_t sendMQTTmsg(cJSON *);
-
 
 void WWC::controlOnTmr()
 {
@@ -74,6 +76,6 @@ void WWC::updateControlPins()
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
     cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
-    sendMQTTmsg(json);
+    aMQTT->sendMQTTmsg(json);
 }
 

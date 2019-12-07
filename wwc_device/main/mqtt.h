@@ -1,3 +1,4 @@
+#include "cJSON.h"
 #include "ActiveObject.h"
 
 class MQTT: public ActiveObject
@@ -22,4 +23,9 @@ class MQTT: public ActiveObject
         IoT_Publish_Message_Params paramsQOS0;
         IoT_Client_Init_Params mqttInitParams;
         IoT_Client_Connect_Params connectParams;
+
+        uint8_t sendMQTTmsg(cJSON *s);
+        void wifiConnected();
+        void wifiDisconnected();
+
 };
