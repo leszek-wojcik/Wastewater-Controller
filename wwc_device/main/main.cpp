@@ -24,10 +24,6 @@ void createActiveObjects()
     aMQTT = new MQTT();
 }
 
-void aws_iot_task(void *param) 
-{
-    aMQTT->mainLoop();
-}
 
 extern "C" 
 {
@@ -43,7 +39,5 @@ extern "C"
 
         createActiveObjects();
 
-        aMQTT->executeMethod ( [=] () { aMQTT->mainLoop(); } );
-       // xTaskCreatePinnedToCore(&aws_iot_task, "aws_iot_task", 9216, NULL, 5, NULL, 1);
     }
 }

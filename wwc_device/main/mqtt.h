@@ -1,56 +1,12 @@
 #include "cJSON.h"
+#include "string.h"
 #include "aws_iot_mqtt_client_interface.h"
 #include "ActiveObject.h"
 
-class MQTT;
-
-class MQTT_FSM_State
-{
-    protected:
-        MQTT *context;
-    public:
-        MQTT_FSM_State(MQTT *ctx):context(ctx){};
-        void stateTransition(MQTT_FSM_State *next);
-        virtual void wifiConnected() = 0;
-        virtual void wifiDisconnected() =0;
-        virtual void established() =0;
-        virtual void onEntry() =0;
-        virtual void onExit() =0;
-};
-
-class MQTT_Init_State: public MQTT_FSM_State
-{
-    public:
-        MQTT_Init_State(MQTT *ctx):MQTT_FSM_State(ctx){};
-        void wifiConnected() override;
-        void wifiDisconnected() override; 
-        void established() override;
-        void onEntry() override;
-        void onExit() override;
-};
- 
-class MQTT_Connecting_State: public MQTT_FSM_State
-{
-    public:
-        MQTT_Connecting_State(MQTT *ctx):MQTT_FSM_State(ctx){};
-        void wifiConnected() override;
-        void wifiDisconnected() override; 
-        void established() override;
-        void onEntry() override;
-        void onExit() override;
-};
-
-class MQTT_Connected_State: public MQTT_FSM_State
-{
-    public:
-        MQTT_Connected_State(MQTT *ctx):MQTT_FSM_State(ctx){};
-        void wifiConnected() override;
-        void wifiDisconnected() override; 
-        void established() override;
-        void onEntry() override;
-        void onExit() override;
-};
- 
+class MQTT_FSM_State;
+class MQTT_Init_State;
+class MQTT_Connecting_State;
+class MQTT_Connected_State;
 
 class MQTT: public ActiveObject
 {
@@ -60,13 +16,17 @@ class MQTT: public ActiveObject
         static MQTT_Init_State* initState;
         static MQTT_Connecting_State* connectingState;
         static MQTT_Connected_State* connectedState;
-        
+        char topic[5];
+        int topicLen;
+        TimerHandle_t throttleTmr;
 
     public:
         MQTT():ActiveObject("MQTT", 9216, 5)
         {
             instance = this;
             createStateMachine();
+            strcpy(topic,"wwc");
+            topicLen = strlen(topic);
         }
 
         static MQTT* getInstance()
@@ -77,6 +37,9 @@ class MQTT: public ActiveObject
         void initParams();
         void mainLoop();
         void createStateMachine();
+        void throttle();
+        void startThrottleTmr();
+        void stopThrottleTmr();
 
         AWS_IoT_Client client;
         char cPayload[100];
