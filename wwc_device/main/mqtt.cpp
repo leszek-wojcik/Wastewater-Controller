@@ -33,11 +33,15 @@
 #include "mqtt.h"
 
 
-static const char *TAG = "subpub";
+static const char *TAG = "MQTT";
 const char *TOPIC = "wwc";
 const int TOPIC_LEN = strlen(TOPIC);
 
 MQTT* MQTT::instance = NULL;
+MQTT_FSM_State* MQTT::currentState = NULL;
+MQTT_Init_State* MQTT::initState = NULL;
+MQTT_Connecting_State* MQTT::connectingState = NULL;
+MQTT_Connected_State* MQTT::connectedState = NULL;
 
 extern const uint8_t aws_root_ca_pem_start[] asm("_binary_aws_root_ca_pem_start");
 extern const uint8_t aws_root_ca_pem_end[] asm("_binary_aws_root_ca_pem_end");
@@ -92,7 +96,6 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data)
 
 void MQTT::initParams()
 {
-    wifi_operational = false;
     mqttInitParams = iotClientInitParamsDefault;
     connectParams = iotClientConnectParamsDefault;
 
@@ -122,21 +125,21 @@ void MQTT::initParams()
     paramsQOS0.isRetained = 0;
 }
 
+void MQTT::createStateMachine()
+{
+    initState        = new MQTT_Init_State(this);
+    connectingState  = new MQTT_Connecting_State(this);
+    connectedState   = new MQTT_Connected_State(this);
+
+    currentState = initState;
+    currentState->onEntry();
+}
 
 void MQTT::mainLoop()
 {
 
     MRequest * msg;
-    IoT_Error_t rc = FAILURE;
-
-
-    rc = aws_iot_mqtt_init(&this->client, &this->mqttInitParams);
-
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(TAG, "aws_iot_mqtt_init returned error : %d ", rc);
-        abort();
-    }
+    IoT_Error_t rc = SUCCESS;
 
     do 
     {
@@ -144,44 +147,9 @@ void MQTT::mainLoop()
         (*(msg->func))();
         delete msg;
     }
-    while( wifi_operational == false);
+    while( currentState != connectingState);
 
-
-    ESP_LOGI(TAG, "Connecting to AWS...");
-    do 
-    {
-        rc = aws_iot_mqtt_connect(&this->client, &this->connectParams);
-        if(SUCCESS != rc) 
-        {
-            ESP_LOGE(TAG, "Error(%d) connecting to %s:%d", 
-                rc, mqttInitParams.pHostURL, mqttInitParams.port);
-            ESP_LOGE(TAG, " client id %s", connectParams.pClientID );
-            vTaskDelay(10000 / portTICK_RATE_MS);
-        }
-    } 
-    while(SUCCESS != rc);
-
-    rc = aws_iot_mqtt_autoreconnect_set_status(&client, true);
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(TAG, "Unable to set Auto Reconnect to true - %d", rc);
-        abort();
-    }
-
-
-    ESP_LOGI(TAG, "Subscribing to %s...", TOPIC);
-    rc = aws_iot_mqtt_subscribe(&client, 
-                                TOPIC, 
-                                TOPIC_LEN, 
-                                QOS0, 
-                                iot_subscribe_callback_handler, 
-                                NULL);
-
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(TAG, "Error subscribing : %d ", rc);
-        abort();
-    }
+    currentState->stateTransition(connectedState);
 
     while(
         (NETWORK_ATTEMPTING_RECONNECT == rc || 
@@ -213,9 +181,9 @@ uint8_t MQTT::sendMQTTmsg(cJSON *s)
 
     auto f = [=] () 
         {
-            if (wifi_operational == false)
+            if (currentState != connectedState)
             {
-                printf("WIFI not operational dropping mqtt msg\n");
+                printf("MQTT not operational dropping mqtt msg\n");
                 cJSON_Delete(s);
             }
             else
@@ -234,23 +202,150 @@ uint8_t MQTT::sendMQTTmsg(cJSON *s)
 
 void MQTT::wifiConnected()
 {
-    auto f = [=] () 
-        {
-            wifi_operational = true;
-        };
-
-    auto mr = new MRequest(NULL, f);
+    auto mr = new MRequest(NULL, [=](){currentState->wifiConnected();});
     xQueueSend(mrQueue, &mr, 0);
 }
 
 void MQTT::wifiDisconnected()
 {
-    auto f = [=] () 
-        {
-            wifi_operational = false;
-        };
-
-    auto mr = new MRequest(NULL, f);
+    auto mr = new MRequest(NULL,[=](){currentState->wifiDisconnected();} );
     xQueueSend(mrQueue, &mr, 0);
 }
 
+void MQTT_FSM_State::stateTransition(MQTT_FSM_State *next)
+{
+    onExit();
+    next->onEntry();
+    context->currentState = next;
+}
+
+void MQTT_Init_State::wifiConnected()
+{
+    stateTransition(context->connectingState);
+}
+
+void MQTT_Connecting_State::wifiConnected()
+{
+    ESP_LOGE(TAG, "wifi connected while in connecting state.");
+    abort();
+}
+
+void MQTT_Connected_State::wifiConnected()
+{
+    ESP_LOGE(TAG, "wifi connected while in connected state.");
+    abort();
+}
+
+void MQTT_Init_State::wifiDisconnected()
+{
+    ESP_LOGE(TAG, "wifi disconnected while in init state.");
+    abort();
+}
+
+void MQTT_Connecting_State::wifiDisconnected()
+{
+    ESP_LOGE(TAG, "wifi disconnected while in connecting state.");
+    //TODO::perform cleanup
+}
+
+void MQTT_Connected_State::wifiDisconnected()
+{
+    ESP_LOGE(TAG, "wifi disconnected while in connected state.");
+    //TODO::perform cleanup
+}
+
+void MQTT_Init_State::established()
+{
+    ESP_LOGE(TAG, "established while in init state.");
+    abort();
+}
+
+void MQTT_Connecting_State::established()
+{
+    //TODO::implement cleanup
+}
+
+void MQTT_Connected_State::established()
+{
+    ESP_LOGE(TAG, "established while in established state.");
+    abort();
+}
+
+void MQTT_Init_State::onEntry()
+{
+    ESP_LOGI(TAG, "Init state");
+    IoT_Error_t rc = FAILURE;
+    context->initParams();
+
+    rc = aws_iot_mqtt_init(&context->client, &context->mqttInitParams);
+
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(TAG, "aws_iot_mqtt_init returned error : %d ", rc);
+        abort();
+    }
+
+}
+
+void MQTT_Connecting_State::onEntry()
+{
+    IoT_Error_t rc = FAILURE;
+    ESP_LOGI(TAG, "Connecting ...");
+    do 
+    {
+        rc = aws_iot_mqtt_connect(&context->client, &context->connectParams);
+        if(SUCCESS != rc) 
+        {
+            ESP_LOGE(TAG, "Error(%d) connecting to %s:%d", 
+                    rc, 
+                    context->mqttInitParams.pHostURL, 
+                    context->mqttInitParams.port);
+
+            vTaskDelay(10000 / portTICK_RATE_MS);
+        }
+    } 
+    while(SUCCESS != rc);
+
+    rc = aws_iot_mqtt_autoreconnect_set_status(&context->client, true);
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(TAG, "Unable to set Auto Reconnect to true - %d", rc);
+        abort();
+    }
+
+
+    ESP_LOGI(TAG, "Subscribing to %s...", TOPIC);
+    rc = aws_iot_mqtt_subscribe(&context->client, 
+                                TOPIC, 
+                                TOPIC_LEN, 
+                                QOS0, 
+                                iot_subscribe_callback_handler, 
+                                NULL);
+
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(TAG, "Error subscribing : %d ", rc);
+        abort();
+    }
+    ESP_LOGI(TAG, "Subscribed to %s...", TOPIC);
+}
+
+void MQTT_Connected_State::onEntry()
+{
+    ESP_LOGI(TAG, "Connected ...");
+}
+
+void MQTT_Init_State::onExit()
+{
+    ESP_LOGI(TAG, "exit init state ...");
+}
+
+void MQTT_Connecting_State::onExit()
+{
+    ESP_LOGI(TAG, "exit connecting state ...");
+}
+
+void MQTT_Connected_State::onExit()
+{
+    ESP_LOGI(TAG, "exit connected state ...");
+}
