@@ -44,6 +44,8 @@ class MQTT: public ActiveObject
         }
 
         void initParams();
+        void connect();
+        void subscribe();
         void mainLoop();
         void createStateMachine();
 

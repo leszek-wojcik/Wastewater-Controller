@@ -1,26 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <limits.h>
 #include <string.h>
 
-#include <string>
-#include "cJSON.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
 #include "esp_log.h"
-#include "esp_vfs_fat.h"
-
-#include "aws_iot_config.h"
-#include "aws_iot_log.h"
-#include "aws_iot_version.h"
-#include "aws_iot_mqtt_client_interface.h"
 
 #include "ActiveObject.h"
 #include "MethodRequest.h"
@@ -29,10 +10,11 @@
 #include "mqtt.h"
 #include "mqttfsm.h"
 
+#include "cJSON.h"
+#include "aws_iot_mqtt_client_interface.h"
+
 
 static const char *TAG = "MQTT";
-const char *TOPIC = "wwc";
-const int TOPIC_LEN = strlen(TOPIC);
 
 MQTT* MQTT::instance = NULL;
 MQTT_FSM_State* MQTT::currentState = NULL;
@@ -144,7 +126,7 @@ uint8_t MQTT::sendMQTTmsg(cJSON *s)
                 sprintf(cPayload,"%s", cJSON_Print(s));
                 paramsQOS0.payloadLen = strlen(cPayload);
 //                printf("json at aws context:\n%s",cJSON_Print(s));
-                aws_iot_mqtt_publish(&client, TOPIC, TOPIC_LEN, &paramsQOS0);
+                aws_iot_mqtt_publish(&client, topic, topicLen, &paramsQOS0);
                 cJSON_Delete(s);
             }
         };
@@ -202,3 +184,85 @@ void MQTT::stopPingTmr()
     stopTimer (pingTmr);
 }
 
+void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, 
+                                    char *topicName, 
+                                    uint16_t topicNameLen, 
+                                    IoT_Publish_Message_Params *params, 
+                                    void *pData) 
+{
+    ESP_LOGI(__PRETTY_FUNCTION__, "Received from cloud");
+    ESP_LOGI(__PRETTY_FUNCTION__, "%.*s\t%.*s", topicNameLen, 
+                                topicName, 
+                                (int) params->payloadLen, 
+                                (char *)params->payload);
+
+}
+
+void ping_callback_handler(AWS_IoT_Client *pClient, 
+                                    char *topicName, 
+                                    uint16_t topicNameLen, 
+                                    IoT_Publish_Message_Params *params, 
+                                    void *pData) 
+{
+    ESP_LOGI(__PRETTY_FUNCTION__, "Received from cloud");
+    ESP_LOGI(__PRETTY_FUNCTION__, "%.*s\t%.*s", topicNameLen, 
+                                topicName, 
+                                (int) params->payloadLen, 
+                                (char *)params->payload);
+
+    MQTT::getInstance()->established();
+}
+
+void MQTT::connect()
+{
+    IoT_Error_t rc = FAILURE;
+    ESP_LOGI(__PRETTY_FUNCTION__, "Connecting ...");
+    do 
+    {
+        rc = aws_iot_mqtt_connect(&client, &connectParams);
+        if(SUCCESS != rc) 
+        {
+            ESP_LOGE(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
+                    rc, 
+                    mqttInitParams.pHostURL, 
+                    mqttInitParams.port);
+
+            vTaskDelay(10000 / portTICK_RATE_MS);
+        }
+    } 
+    while(SUCCESS != rc);
+
+    rc = aws_iot_mqtt_autoreconnect_set_status(&client, true);
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "Unable to set Auto Reconnect to true - %d", rc);
+        abort();
+    }
+}
+
+void MQTT::subscribe()
+{
+    IoT_Error_t rc = FAILURE;
+    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", topic);
+    rc = aws_iot_mqtt_subscribe(&client, 
+                                topic, 
+                                topicLen, 
+                                QOS0, 
+                                iot_subscribe_callback_handler, 
+                                NULL);
+
+
+    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", pingTopic);
+    rc = aws_iot_mqtt_subscribe(&client, 
+                                pingTopic, 
+                                pingTopicLen, 
+                                QOS0, 
+                                ping_callback_handler, 
+                                NULL);
+
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
+        abort();
+    }
+}
