@@ -165,6 +165,12 @@ void MQTT::wifiDisconnected()
     xQueueSend(mrQueue, &mr, 0);
 }
 
+void MQTT::established()
+{
+    auto mr = new MRequest(NULL,[=](){currentState->established();} );
+    xQueueSend(mrQueue, &mr, 0);
+}
+
 void MQTT::startThrottleTmr()
 {
     throttleTmr =  createTimer (
@@ -176,3 +182,23 @@ void MQTT::stopThrottleTmr()
 {
     stopTimer (throttleTmr);
 }
+
+void MQTT::ping()
+{
+    sprintf(cPayload,"%s", "ping");
+    paramsQOS0.payloadLen = strlen(cPayload);
+    aws_iot_mqtt_publish(&client, pingTopic, pingTopicLen, &paramsQOS0);
+}
+
+void MQTT::startPingTmr()
+{
+    pingTmr =  createTimer (
+                [=] () { ping(); },
+               10000/portTICK_PERIOD_MS  );
+}
+
+void MQTT::stopPingTmr()
+{
+    stopTimer (pingTmr);
+}
+

@@ -17,6 +17,21 @@ void iot_subscribe_callback_handler(AWS_IoT_Client *pClient,
 
 }
 
+void ping_callback_handler(AWS_IoT_Client *pClient, 
+                                    char *topicName, 
+                                    uint16_t topicNameLen, 
+                                    IoT_Publish_Message_Params *params, 
+                                    void *pData) 
+{
+    ESP_LOGI(__PRETTY_FUNCTION__, "Received from cloud");
+    ESP_LOGI(__PRETTY_FUNCTION__, "%.*s\t%.*s", topicNameLen, 
+                                topicName, 
+                                (int) params->payloadLen, 
+                                (char *)params->payload);
+
+    MQTT::getInstance()->established();
+}
+
 
 void MQTT_FSM_State::stateTransition(MQTT_FSM_State *next)
 {
@@ -28,8 +43,6 @@ void MQTT_FSM_State::stateTransition(MQTT_FSM_State *next)
 void MQTT_Init_State::wifiConnected()
 {
     stateTransition(context->connectingState);
-    //this is tweek until we get connecting state right
-    stateTransition(context->connectedState);
 }
 
 void MQTT_Connecting_State::wifiConnected()
@@ -69,7 +82,9 @@ void MQTT_Init_State::established()
 
 void MQTT_Connecting_State::established()
 {
-    //TODO::implement cleanup
+    context->stopPingTmr();
+    context->stopThrottleTmr();
+    stateTransition(context->connectedState);
 }
 
 void MQTT_Connected_State::established()
@@ -121,12 +136,21 @@ void MQTT_Connecting_State::onEntry()
     }
 
 
-    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", context->topic);
-    rc = aws_iot_mqtt_subscribe(&context->client, 
+   ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", context->topic);
+   rc = aws_iot_mqtt_subscribe(&context->client, 
                                 context->topic, 
                                 context->topicLen, 
                                 QOS0, 
                                 iot_subscribe_callback_handler, 
+                                NULL);
+
+
+    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", context->pingTopic);
+    rc = aws_iot_mqtt_subscribe(&context->client, 
+                                context->pingTopic, 
+                                context->pingTopicLen, 
+                                QOS0, 
+                                ping_callback_handler, 
                                 NULL);
 
     if(SUCCESS != rc) 
@@ -134,7 +158,9 @@ void MQTT_Connecting_State::onEntry()
         ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
         abort();
     }
-    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribed to %s...", context->topic);
+
+    context->startPingTmr();
+    context->startThrottleTmr();
 }
 
 void MQTT_Connected_State::onEntry()
@@ -151,6 +177,9 @@ void MQTT_Init_State::onExit()
 void MQTT_Connecting_State::onExit()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "exit connecting state ...");
+
+    context->stopPingTmr();
+    context->stopThrottleTmr();
 }
 
 void MQTT_Connected_State::onExit()

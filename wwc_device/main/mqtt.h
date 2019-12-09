@@ -16,17 +16,26 @@ class MQTT: public ActiveObject
         static MQTT_Init_State* initState;
         static MQTT_Connecting_State* connectingState;
         static MQTT_Connected_State* connectedState;
+
         char topic[5];
         int topicLen;
+        char pingTopic[5];
+        int pingTopicLen;
+
         TimerHandle_t throttleTmr;
+        TimerHandle_t pingTmr;
 
     public:
         MQTT():ActiveObject("MQTT", 9216, 5)
         {
             instance = this;
             createStateMachine();
+
             strcpy(topic,"wwc");
             topicLen = strlen(topic);
+
+            strcpy(pingTopic,"wwcping");
+            pingTopicLen = strlen(pingTopic);
         }
 
         static MQTT* getInstance()
@@ -37,9 +46,14 @@ class MQTT: public ActiveObject
         void initParams();
         void mainLoop();
         void createStateMachine();
+
         void throttle();
         void startThrottleTmr();
         void stopThrottleTmr();
+
+        void ping();
+        void startPingTmr();
+        void stopPingTmr();
 
         AWS_IoT_Client client;
         char cPayload[100];
@@ -49,8 +63,11 @@ class MQTT: public ActiveObject
         IoT_Client_Connect_Params connectParams;
 
         uint8_t sendMQTTmsg(cJSON *s);
+
+        // State Machine 
         void wifiConnected();
         void wifiDisconnected();
+        void established();
 
         friend class MQTT_FSM_State;
         friend class MQTT_Init_State;
