@@ -82,7 +82,7 @@ void MQTT_Init_State::onEntry()
 void MQTT_Connecting_State::onEntry()
 {
     context->connect();
-    context->subscribe();
+    context->subscribePing();
     context->startPingTmr();
     context->startThrottleTmr();
 }
@@ -90,6 +90,7 @@ void MQTT_Connecting_State::onEntry()
 void MQTT_Connected_State::onEntry()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Connected ...");
+    context->subscribeTopic();
     context->startThrottleTmr();
 }
 
@@ -104,10 +105,12 @@ void MQTT_Connecting_State::onExit()
 
     context->stopPingTmr();
     context->stopThrottleTmr();
+    context->unsubscribePing();
 }
 
 void MQTT_Connected_State::onExit()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "exit connected state ...");
+    context->unsubscribeTopic();
     context->stopThrottleTmr();
 }

@@ -24,6 +24,8 @@ class MQTT: public ActiveObject
 
         TimerHandle_t throttleTmr;
         TimerHandle_t pingTmr;
+        TimerHandle_t activityTmr;
+        bool activityInd;
 
     public:
         MQTT():ActiveObject("MQTT", 9216, 5)
@@ -36,6 +38,7 @@ class MQTT: public ActiveObject
 
             strcpy(pingTopic,"wwcping");
             pingTopicLen = strlen(pingTopic);
+            activityInd = false;
         }
 
         static MQTT* getInstance()
@@ -45,8 +48,11 @@ class MQTT: public ActiveObject
 
         void initParams();
         void connect();
-        void subscribe();
-        void mainLoop();
+        void subscribePing();
+        void unsubscribePing();
+        void subscribeTopic();
+        void unsubscribeTopic();
+
         void createStateMachine();
 
         void throttle();
@@ -56,6 +62,11 @@ class MQTT: public ActiveObject
         void ping();
         void startPingTmr();
         void stopPingTmr();
+
+        void activity();
+        void startActivityTmr();
+        void stopActivityTmr();
+        void activityPresent();
 
         AWS_IoT_Client client;
         char cPayload[100];
