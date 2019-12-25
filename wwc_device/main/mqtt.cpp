@@ -193,6 +193,7 @@ void MQTT::activity()
 {
     if( activityInd == false )
     {
+        //todo: do it gracefully instead of just abort
         abort();
     }
     activityInd = false;
@@ -262,7 +263,6 @@ void MQTT::connect()
     if(SUCCESS != rc) 
     {
         ESP_LOGE(__PRETTY_FUNCTION__, "Unable to set Auto Reconnect to true - %d", rc);
-        abort();
     }
 
 }
@@ -281,7 +281,6 @@ void MQTT::subscribePing()
     if(SUCCESS != rc) 
     {
         ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
-        abort();
     }
 }
 
@@ -294,7 +293,6 @@ void MQTT::unsubscribePing()
     if(SUCCESS != rc) 
     {
         ESP_LOGE(__PRETTY_FUNCTION__, "Error unsubscribing : %d ", rc);
-        abort();
     }
 
 }
@@ -314,7 +312,6 @@ void MQTT::subscribeTopic()
     if(SUCCESS != rc) 
     {
         ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
-        abort();
     }
 }
 
@@ -327,7 +324,6 @@ void MQTT::unsubscribeTopic()
     if(SUCCESS != rc) 
     {
         ESP_LOGE(__PRETTY_FUNCTION__, "Error unsubscribing : %d ", rc);
-        abort();
     }
 
 }

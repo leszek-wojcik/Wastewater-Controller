@@ -22,7 +22,8 @@ void MQTT_Init_State::onExit()
 
 void MQTT_Init_State::wifiDisconnected()
 {
-
+    ESP_LOGE(__PRETTY_FUNCTION__, "abnormal scenario in Init state");
+    abort();
 }
 
 void MQTT_Init_State::onEntry()
@@ -65,7 +66,7 @@ void MQTT_Connecting_State::wifiConnected()
 void MQTT_Connecting_State::wifiDisconnected()
 {
     ESP_LOGE(__PRETTY_FUNCTION__, "wifi disconnected while in connecting state.");
-    //TODO::perform cleanup
+    stateTransition(context->initState);
 }
 
 
@@ -80,10 +81,11 @@ void MQTT_Connecting_State::onEntry()
 {
     context->connect();
     context->subscribePing();
-    context->startPingTmr();
+    context->numberOfPings = 0;
     context->ping();
-    context->startThrottleTmr();
+    context->startPingTmr();
     context->throttle(1000);
+    context->startThrottleTmr();
 }
 
 void MQTT_Connecting_State::onExit()
@@ -110,7 +112,7 @@ void MQTT_Connected_State::established()
 void MQTT_Connected_State::wifiDisconnected()
 {
     ESP_LOGE(__PRETTY_FUNCTION__, "wifi disconnected while in connected state.");
-    //TODO::perform cleanup
+    stateTransition(context->initState);
 }
 
 
