@@ -30,8 +30,8 @@ extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start"
 extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
 
-char HostAddress[255] = AWS_IOT_MQTT_HOST;
-uint32_t port = AWS_IOT_MQTT_PORT;
+char HostAddress[255] = CONFIG_MQTT_HOST;
+uint32_t port = CONFIG_MQTT_PORT;
 
 void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) 
 {
@@ -78,7 +78,7 @@ void MQTT::initParams()
     mqttInitParams.disconnectHandler = disconnectCallbackHandler;
     mqttInitParams.disconnectHandlerData = NULL;
 
-    connectParams.keepAliveIntervalInSec = 10;
+    connectParams.keepAliveIntervalInSec = 5;
     connectParams.isCleanSession = true;
     connectParams.MQTTVersion = MQTT_3_1_1;
     connectParams.pClientID = CONFIG_AWS_CLIENT_ID;
@@ -100,10 +100,10 @@ void MQTT::createStateMachine()
     currentState->onEntry();
 }
 
-void MQTT::throttle()
+void MQTT::throttle(uint32_t tmo)
 {
     IoT_Error_t rc = SUCCESS;
-    rc = aws_iot_mqtt_yield(&client, 100);
+    rc = aws_iot_mqtt_yield(&client, tmo);
 
     if (rc !=SUCCESS)
     {
@@ -170,6 +170,10 @@ void MQTT::ping()
     sprintf(cPayload,"%s", "ping");
     paramsQOS0.payloadLen = strlen(cPayload);
     aws_iot_mqtt_publish(&client, pingTopic, pingTopicLen, &paramsQOS0);
+    numberOfPings++;
+
+    if (numberOfPings > 3)
+        currentState->onError();
 }
 
 void MQTT::startPingTmr()
@@ -244,21 +248,15 @@ void ping_callback_handler(AWS_IoT_Client *pClient,
 void MQTT::connect()
 {
     IoT_Error_t rc = FAILURE;
-    ESP_LOGI(__PRETTY_FUNCTION__, "Connecting ...");
-    do 
+    ESP_LOGI("MQTT", "Connecting ...");
+    rc = aws_iot_mqtt_connect(&client, &connectParams);
+    if(SUCCESS != rc) 
     {
-        rc = aws_iot_mqtt_connect(&client, &connectParams);
-        if(SUCCESS != rc) 
-        {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
-                    rc, 
-                    mqttInitParams.pHostURL, 
-                    mqttInitParams.port);
-
-            vTaskDelay(10000 / portTICK_RATE_MS);
-        }
-    } 
-    while(SUCCESS != rc);
+        ESP_LOGE(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
+                rc, 
+                mqttInitParams.pHostURL, 
+                mqttInitParams.port);
+    }
 
     rc = aws_iot_mqtt_autoreconnect_set_status(&client, true);
     if(SUCCESS != rc) 
@@ -266,6 +264,7 @@ void MQTT::connect()
         ESP_LOGE(__PRETTY_FUNCTION__, "Unable to set Auto Reconnect to true - %d", rc);
         abort();
     }
+
 }
 
 void MQTT::subscribePing()

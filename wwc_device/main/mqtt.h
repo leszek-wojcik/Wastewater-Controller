@@ -26,6 +26,7 @@ class MQTT: public ActiveObject
         TimerHandle_t pingTmr;
         TimerHandle_t activityTmr;
         bool activityInd;
+        int numberOfPings;
 
     public:
         MQTT():ActiveObject("MQTT", 9216, 5)
@@ -39,6 +40,7 @@ class MQTT: public ActiveObject
             strcpy(pingTopic,"wwcping");
             pingTopicLen = strlen(pingTopic);
             activityInd = false;
+            numberOfPings = 0;
         }
 
         static MQTT* getInstance()
@@ -55,7 +57,7 @@ class MQTT: public ActiveObject
 
         void createStateMachine();
 
-        void throttle();
+        void throttle(uint32_t tmo=100);
         void startThrottleTmr();
         void stopThrottleTmr();
 

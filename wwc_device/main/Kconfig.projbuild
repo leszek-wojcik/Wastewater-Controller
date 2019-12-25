@@ -20,4 +20,17 @@ config AWS_CLIENT_ID
     help
         AWS IoT Client ID for the example. Should be unique for every device.
 
+config MQTT_HOST
+    string "MQTT HOST"
+    default "aws"
+    help
+        MQTT HOST ADDRESS.
+
+
+config MQTT_PORT
+    int "MQTT PORT"
+    default "8883"
+    help
+        MQTT HOST ADDRESS PORT.
+
 endmenu

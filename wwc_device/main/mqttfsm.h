@@ -12,6 +12,7 @@ class MQTT_FSM_State
         virtual void established() =0;
         virtual void onEntry() =0;
         virtual void onExit() =0;
+        virtual void onError() = 0;
 };
 
 class MQTT_Init_State: public MQTT_FSM_State
@@ -23,6 +24,7 @@ class MQTT_Init_State: public MQTT_FSM_State
         void established() override;
         void onEntry() override;
         void onExit() override;
+        void onError() override;
 };
  
 class MQTT_Connecting_State: public MQTT_FSM_State
@@ -34,6 +36,7 @@ class MQTT_Connecting_State: public MQTT_FSM_State
         void established() override;
         void onEntry() override;
         void onExit() override;
+        void onError() override;
 };
 
 class MQTT_Connected_State: public MQTT_FSM_State
@@ -45,6 +48,7 @@ class MQTT_Connected_State: public MQTT_FSM_State
         void established() override;
         void onEntry() override;
         void onExit() override;
+        void onError() override;
 };
  
 
