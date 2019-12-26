@@ -23,14 +23,16 @@ class ActiveObject
         ActiveObject(string name="\0",uint16_t stackSize=configMINIMAL_STACK_SIZE, UBaseType_t priority=tskIDLE_PRIORITY);
 
         TimerHandle_t createOneTimeTimer(
+                TimerHandle_t *tmr,
                 const std::function<void()> &f, 
                 const TickType_t period );
 
         TimerHandle_t createTimer (
+                TimerHandle_t *tmr,
                 const std::function<void()> &f, 
                 const TickType_t period );
 
-        void stopTimer(TimerHandle_t tmr);
+        void stopTimer(TimerHandle_t *tmr);
 
         uint8_t executeMethod(const std::function<void()> &);
 

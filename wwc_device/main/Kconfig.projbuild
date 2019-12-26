@@ -11,8 +11,21 @@ config WIFI_PASSWORD
     default "mypassword"
     help
         WiFi password (WPA or WPA2) for the example to use.
-
         Can be left blank if the network has no security set.
+
+config WIFIALT_SSID
+    string "Alternative WiFi SSID"
+    default "myssid"
+    help
+        SSID (network name) for the example to connect to.
+
+config WIFIALT_PASSWORD
+    string "Alternative WiFi Password"
+    default "mypassword"
+    help
+        WiFi password (WPA or WPA2) for the example to use.
+        Can be left blank if the network has no security set.
+
 
 config AWS_CLIENT_ID
     string "AWS IoT Client ID"
@@ -26,11 +39,11 @@ config MQTT_HOST
     help
         MQTT HOST ADDRESS.
 
-
 config MQTT_PORT
     int "MQTT PORT"
     default "8883"
     help
         MQTT HOST ADDRESS PORT.
+
 
 endmenu

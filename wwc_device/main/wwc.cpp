@@ -25,10 +25,13 @@ WWC::WWC():ActiveObject("WWC",2048,6)
     gpio_pad_select_gpio(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 
-    aWWCtmr =  createTimer (
-                [=] () { this->controlOnTmr(); },
-//                600000/portTICK_PERIOD_MS  ); //10 minutes
-               5000/portTICK_PERIOD_MS  ); //5 sec
+    aWWCtmr = NULL;
+
+    createTimer (
+            &aWWCtmr,
+            [=] () { this->controlOnTmr(); },
+            //                600000/portTICK_PERIOD_MS  ); //10 minutes
+            5000/portTICK_PERIOD_MS  ); //5 sec
 }
 
 void WWC::controlOnTmr()

@@ -3,6 +3,8 @@
 #include "aws_iot_mqtt_client_interface.h"
 #include "ActiveObject.h"
 
+
+class WiFi;
 class MQTT_FSM_State;
 class MQTT_Init_State;
 class MQTT_Connecting_State;
@@ -25,23 +27,15 @@ class MQTT: public ActiveObject
         TimerHandle_t throttleTmr;
         TimerHandle_t pingTmr;
         TimerHandle_t activityTmr;
+        TimerHandle_t initTmr;
+        TimerHandle_t reconnectTmr;
+        TimerHandle_t safeGuardTmr;
+
         bool activityInd;
-        int numberOfPings;
+        WiFi *wifi;
 
     public:
-        MQTT():ActiveObject("MQTT", 9216, 5)
-        {
-            instance = this;
-            createStateMachine();
-
-            strcpy(topic,"wwc");
-            topicLen = strlen(topic);
-
-            strcpy(pingTopic,"wwcping");
-            pingTopicLen = strlen(pingTopic);
-            activityInd = false;
-            numberOfPings = 0;
-        }
+        MQTT(WiFi *wifi);
 
         static MQTT* getInstance()
         {
@@ -49,7 +43,12 @@ class MQTT: public ActiveObject
         }
 
         void initParams();
-        void connect();
+
+        void connectWiFi();
+        void toggleWiFi();
+        void disconnectWiFi();
+
+        bool connectMQTT();
         void subscribePing();
         void unsubscribePing();
         void subscribeTopic();
@@ -64,6 +63,19 @@ class MQTT: public ActiveObject
         void ping();
         void startPingTmr();
         void stopPingTmr();
+
+        void safeGuard();
+        void startSafeGuardTmr();
+        void stopSafeGuardTmr();
+
+        void init();
+        void startInitTmr();
+        void stopInitTmr();
+
+        void reconnectMQTT();
+        void startReconnectTmr();
+        void stopReconnectTmr();
+
 
         void activity();
         void startActivityTmr();
@@ -83,6 +95,7 @@ class MQTT: public ActiveObject
         void wifiConnected();
         void wifiDisconnected();
         void established();
+        void onError();
 
         friend class MQTT_FSM_State;
         friend class MQTT_Init_State;

@@ -36,49 +36,65 @@ ActiveObject::ActiveObject(string name, uint16_t stackSize , UBaseType_t priorit
 
 }
 
-TimerHandle_t ActiveObject::createOneTimeTimer
-     (   const std::function<void()> &f, 
-         const TickType_t period )
+TimerHandle_t ActiveObject::createOneTimeTimer (   
+        TimerHandle_t *tmr,
+        const std::function<void()> &f, 
+        const TickType_t period )
 {
-    TimerHandle_t returnTimer;
+
+    if (*tmr !=NULL) {
+        printf("timer was not created \n");
+        return NULL;
+    }
+
     auto mr = new MRequest( this, f);
     mr->setPersistent(false);
 
-    returnTimer = xTimerCreate
+    *tmr = xTimerCreate
         ( "tmr",
           period,
           0,
           mr,
           ActiveObjectTimerCallback );
 
-    xTimerStart(returnTimer,0);
+    xTimerStart(*tmr,0);
 
-    return returnTimer;
+    return *tmr;
 }
 
-void ActiveObject::stopTimer(TimerHandle_t tmr)
+void ActiveObject::stopTimer(TimerHandle_t *tmr)
 {
-    xTimerStop( tmr, 0 );
+    if (*tmr == NULL)
+    {
+        printf("timer was not stopped\n");
+        return;
+    }
+    xTimerStop( *tmr, 0 );
+    *tmr = NULL;
 }
 
-TimerHandle_t ActiveObject::createTimer
-     (   const std::function<void()> &f, 
-         const TickType_t period )
+TimerHandle_t ActiveObject::createTimer (   
+        TimerHandle_t *tmr,
+        const std::function<void()> &f, 
+        const TickType_t period )
 {
-    TimerHandle_t returnTimer;
+
+    if (*tmr !=NULL) {
+        return NULL;
+    }
+
     auto mr = new MRequest( this, f);
     mr->setPersistent(true);
 
-    returnTimer = xTimerCreate
+    *tmr = xTimerCreate
         ( "tmr",
           period,
           1,
           mr,
           ActiveObjectTimerCallback );
 
-    xTimerStart(returnTimer,0);
-
-    return returnTimer;
+    xTimerStart(*tmr,0);
+    return *tmr;
 }
 
 uint8_t ActiveObject::executeMethod(MRequest *mr)

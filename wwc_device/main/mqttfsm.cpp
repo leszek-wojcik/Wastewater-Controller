@@ -15,37 +15,29 @@ void MQTT_Init_State::wifiConnected()
     stateTransition(context->connectingState);
 }
 
-void MQTT_Init_State::onExit()
-{
-    ESP_LOGI(__PRETTY_FUNCTION__, "exit init state ...");
-}
-
 void MQTT_Init_State::wifiDisconnected()
 {
-    ESP_LOGE(__PRETTY_FUNCTION__, "abnormal scenario in Init state");
-    abort();
+    ESP_LOGI(__PRETTY_FUNCTION__, "wifi disconnected in Init state");
+    stateTransition(context->initState);
 }
 
 void MQTT_Init_State::onEntry()
 {
-    ESP_LOGI(__PRETTY_FUNCTION__, "Init state");
-    IoT_Error_t rc = FAILURE;
-    context->initParams();
+    ESP_LOGI(__PRETTY_FUNCTION__, "Init state Entry");
+    context->init();
+    context->startInitTmr();
+}
 
-    rc = aws_iot_mqtt_init(&context->client, &context->mqttInitParams);
-
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(__PRETTY_FUNCTION__, "aws_iot_mqtt_init returned error : %d ", rc);
-        abort();
-    }
-
+void MQTT_Init_State::onExit()
+{
+    ESP_LOGI(__PRETTY_FUNCTION__, "exit init state ...");
+    context->stopInitTmr();
 }
 
 void MQTT_Init_State::onError()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Error in init state ...");
-    abort();
+    stateTransition(context->initState);
 }
 
 void MQTT_Init_State::established()
@@ -53,8 +45,6 @@ void MQTT_Init_State::established()
     ESP_LOGE(__PRETTY_FUNCTION__, "established while in init state.");
     abort();
 }
-
-
 
 void MQTT_Connecting_State::wifiConnected()
 {
@@ -65,27 +55,31 @@ void MQTT_Connecting_State::wifiConnected()
 
 void MQTT_Connecting_State::wifiDisconnected()
 {
-    ESP_LOGE(__PRETTY_FUNCTION__, "wifi disconnected while in connecting state.");
+    ESP_LOGI(__PRETTY_FUNCTION__, "wifi disconnected while in connecting state.");
     stateTransition(context->initState);
 }
 
 
 void MQTT_Connecting_State::established()
 {
-    context->stopPingTmr();
-    context->stopThrottleTmr();
     stateTransition(context->connectedState);
 }
 
 void MQTT_Connecting_State::onEntry()
 {
-    context->connect();
-    context->subscribePing();
-    context->numberOfPings = 0;
-    context->ping();
-    context->startPingTmr();
-    context->throttle(1000);
-    context->startThrottleTmr();
+    context->startSafeGuardTmr();
+    if (context->connectMQTT())
+    {
+        context->subscribePing();
+        context->ping();
+        context->startPingTmr();
+        context->throttle(1000);
+        context->startThrottleTmr();
+    }
+    else 
+    {
+        context->startReconnectTmr();
+    }
 }
 
 void MQTT_Connecting_State::onExit()
@@ -94,13 +88,15 @@ void MQTT_Connecting_State::onExit()
 
     context->stopPingTmr();
     context->stopThrottleTmr();
+    context->stopReconnectTmr();
+    context->stopSafeGuardTmr();
     context->unsubscribePing();
 }
 
 void MQTT_Connecting_State::onError()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Error in connecting state ...");
-    stateTransition(context->connectingState);
+    stateTransition(context->initState);
 }
 
 void MQTT_Connected_State::established()
@@ -115,12 +111,12 @@ void MQTT_Connected_State::wifiDisconnected()
     stateTransition(context->initState);
 }
 
-
 void MQTT_Connected_State::onEntry()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Connected ...");
     context->subscribeTopic();
     context->startThrottleTmr();
+    context->startActivityTmr();
     context->throttle(1000);
 }
 
@@ -129,12 +125,13 @@ void MQTT_Connected_State::onExit()
     ESP_LOGI(__PRETTY_FUNCTION__, "exit connected state ...");
     context->unsubscribeTopic();
     context->stopThrottleTmr();
+    context->stopActivityTmr();
 }
 
 void MQTT_Connected_State::onError()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Error in connected state ...");
-    abort();
+    stateTransition(context->connectingState);
 }
 
 void MQTT_Connected_State::wifiConnected()

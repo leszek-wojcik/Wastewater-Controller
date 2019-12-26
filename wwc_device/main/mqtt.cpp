@@ -35,28 +35,29 @@ uint32_t port = CONFIG_MQTT_PORT;
 
 void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) 
 {
-    ESP_LOGW(TAG, "MQTT Disconnect");
-    IoT_Error_t rc = FAILURE;
+    ESP_LOGW(TAG, "MQTT Disconnect from AWS IOT framework");
+    MQTT::getInstance()->onError();
+}
 
-    if(NULL == pClient) { return; }
+MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
+{
+    instance = this;
 
-    if(aws_iot_is_autoreconnect_enabled(pClient)) 
-    {
-        ESP_LOGI(TAG, "Auto Reconnect is enabled, Reconnecting attempt will start now");
-    } 
-    else 
-    {
-        ESP_LOGW(TAG, "Auto Reconnect not enabled. Starting manual reconnect...");
-        rc = aws_iot_mqtt_attempt_reconnect(pClient);
-        if(NETWORK_RECONNECTED == rc) 
-        {
-            ESP_LOGW(TAG, "Manual Reconnect Successful");
-        } 
-        else 
-        {
-            ESP_LOGW(TAG, "Manual Reconnect Failed - %d", rc);
-        }
-    }
+    throttleTmr  = NULL;
+    pingTmr      = NULL;
+    activityTmr  = NULL;
+    initTmr      = NULL;
+    reconnectTmr = NULL;
+    safeGuardTmr = NULL;
+
+    strcpy(topic,"wwc");
+    topicLen = strlen(topic);
+
+    strcpy(pingTopic,"wwcping");
+    pingTopicLen = strlen(pingTopic);
+    activityInd = false;
+
+    createStateMachine();
 }
 
 void MQTT::initParams()
@@ -108,6 +109,7 @@ void MQTT::throttle(uint32_t tmo)
     if (rc !=SUCCESS)
     {
         ESP_LOGE(__PRETTY_FUNCTION__, "error form mqqt yield");
+        onError();
     }
 }
 
@@ -153,61 +155,157 @@ void MQTT::established()
     xQueueSend(mrQueue, &mr, 0);
 }
 
+void MQTT::onError()
+{
+    auto mr = new MRequest(NULL,[=](){currentState->onError();} );
+    xQueueSend(mrQueue, &mr, 0);
+}
+
+
 void MQTT::startThrottleTmr()
 {
-    throttleTmr =  createTimer (
-                [=] () { throttle(); },
-               1000/portTICK_PERIOD_MS  );
+    ESP_LOGI("MQTT", "start throttle timer");
+    createTimer (
+            &throttleTmr, 
+            [=] () { throttle(); },
+            1000/portTICK_PERIOD_MS  );
 }
 
 void MQTT::stopThrottleTmr()
 {
-    stopTimer (throttleTmr);
+    ESP_LOGI("MQTT", "stop throttle timer");
+    stopTimer (&throttleTmr);
 }
 
 void MQTT::ping()
 {
+    ESP_LOGI("MQTT", "ping ...");
     sprintf(cPayload,"%s", "ping");
     paramsQOS0.payloadLen = strlen(cPayload);
     aws_iot_mqtt_publish(&client, pingTopic, pingTopicLen, &paramsQOS0);
-    numberOfPings++;
-
-    if (numberOfPings > 3)
-        currentState->onError();
 }
 
 void MQTT::startPingTmr()
 {
-    pingTmr =  createTimer (
-                [=] () { ping(); },
-               10000/portTICK_PERIOD_MS  );
+    ESP_LOGI("MQTT", "start ping timer");
+    createTimer (
+            &pingTmr ,  
+            [=] () { ping(); },
+            10000/portTICK_PERIOD_MS  );
 }
 
 void MQTT::stopPingTmr()
 {
-    stopTimer (pingTmr);
+    ESP_LOGI("MQTT", "stop ping timer");
+    stopTimer (&pingTmr);
 }
 
+void MQTT::safeGuard()
+{
+    ESP_LOGW("MQTT", "safeGuard ...");
+    currentState->onError();
+}
+
+void MQTT::startSafeGuardTmr()
+{
+    ESP_LOGI("MQTT", "start safeguard timer");
+    createTimer (
+            &safeGuardTmr, 
+            [=] () { safeGuard(); },
+            32000/portTICK_PERIOD_MS  );
+}
+
+void MQTT::stopSafeGuardTmr()
+{
+    ESP_LOGI("MQTT", "stop safeguard timer");
+    stopTimer( &safeGuardTmr );
+}
+
+void MQTT::reconnectMQTT()
+{
+    ESP_LOGI("MQTT", "reconnecting ...");
+
+    if (currentState != connectingState )
+    {
+        abort();
+    }
+    //redo entry acction with attempt to connect
+    currentState->onEntry();
+    
+}
+
+void MQTT::startReconnectTmr()
+{
+    ESP_LOGI("MQTT", "start reconnect timer");
+    createOneTimeTimer (
+            &reconnectTmr,
+            [=] () { reconnectMQTT(); },
+            15000/portTICK_PERIOD_MS  );
+}
+
+void MQTT::stopReconnectTmr()
+{
+    ESP_LOGI("MQTT", "stop reconnect timer");
+    stopTimer (&reconnectTmr);
+}
 
 void MQTT::activity()
 {
     if( activityInd == false )
     {
-        //todo: do it gracefully instead of just abort
-        abort();
+        ESP_LOGW("MQTT", "no activity ...");
+        currentState->onError();
     }
     activityInd = false;
 }
 
 void MQTT::startActivityTmr()
 {
-    activityTmr =  createTimer (
-                [=] () { activity(); },
-               3600000/portTICK_PERIOD_MS  );
+    ESP_LOGI("MQTT", "start activity timer");
+    createTimer (
+            &activityTmr,
+            [=] () { activity(); },
+            600000/portTICK_PERIOD_MS  );
 }
 void MQTT::stopActivityTmr()
 {
-    stopTimer(activityTmr);
+    ESP_LOGI("MQTT", "stop activity timer");
+    stopTimer(&activityTmr);
+}
+
+
+void MQTT::init()
+{
+    ESP_LOGI(__PRETTY_FUNCTION__, "init");
+    IoT_Error_t rc = FAILURE;
+    initParams();
+    rc = aws_iot_mqtt_init(&client, &mqttInitParams);
+
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "aws_iot_mqtt_init returned error : %d ", rc);
+        abort();
+    }
+    disconnectWiFi();
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    connectWiFi();
+    toggleWiFi();
+}
+
+void MQTT::startInitTmr()
+{
+    ESP_LOGI("MQTT", "start init timer");
+    createTimer (
+            &initTmr ,
+            [=] () {init();},
+            15000/portTICK_PERIOD_MS);
+
+}
+void MQTT::stopInitTmr()
+{
+
+    ESP_LOGI("MQTT", "stop init timer");
+    stopTimer(&initTmr);
 }
 
 void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, 
@@ -216,8 +314,7 @@ void iot_subscribe_callback_handler(AWS_IoT_Client *pClient,
                                     IoT_Publish_Message_Params *params, 
                                     void *pData) 
 {
-    ESP_LOGI(__PRETTY_FUNCTION__, "Received from cloud");
-    ESP_LOGI(__PRETTY_FUNCTION__, "%.*s\t%.*s", topicNameLen, 
+    ESP_LOGI("MQTT", " Received from could %.*s\t%.*s", topicNameLen, 
                                 topicName, 
                                 (int) params->payloadLen, 
                                 (char *)params->payload);
@@ -246,25 +343,36 @@ void ping_callback_handler(AWS_IoT_Client *pClient,
     MQTT::getInstance()->established();
 }
 
-void MQTT::connect()
+bool MQTT::connectMQTT()
 {
     IoT_Error_t rc = FAILURE;
     ESP_LOGI("MQTT", "Connecting ...");
     rc = aws_iot_mqtt_connect(&client, &connectParams);
     if(SUCCESS != rc) 
     {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
+        ESP_LOGW(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
                 rc, 
                 mqttInitParams.pHostURL, 
                 mqttInitParams.port);
+        return false;
     }
+    return true;
 
-    rc = aws_iot_mqtt_autoreconnect_set_status(&client, true);
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Unable to set Auto Reconnect to true - %d", rc);
-    }
+}
 
+void MQTT::connectWiFi()
+{
+    wifi->connect();
+}
+
+void MQTT::disconnectWiFi()
+{
+    wifi->disconnect();
+}
+
+void MQTT::toggleWiFi()
+{
+    wifi->toggle();
 }
 
 void MQTT::subscribePing()
