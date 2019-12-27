@@ -19,10 +19,16 @@ class MQTT: public ActiveObject
         static MQTT_Connecting_State* connectingState;
         static MQTT_Connected_State* connectedState;
 
-        char topic[5];
+        char topic[20];
         int topicLen;
-        char pingTopic[5];
+        char pingTopic[20];
         int pingTopicLen;
+        char cPayload[100];
+
+        IoT_Publish_Message_Params paramsQOS0;
+        IoT_Client_Init_Params mqttInitParams;
+        IoT_Client_Connect_Params connectParams;
+        AWS_IoT_Client client;
 
         TimerHandle_t throttleTmr;
         TimerHandle_t pingTmr;
@@ -33,14 +39,6 @@ class MQTT: public ActiveObject
 
         bool activityInd;
         WiFi *wifi;
-
-    public:
-        MQTT(WiFi *wifi);
-
-        static MQTT* getInstance()
-        {
-            return instance;
-        }
 
         void initParams();
 
@@ -76,26 +74,35 @@ class MQTT: public ActiveObject
         void startReconnectTmr();
         void stopReconnectTmr();
 
-
         void activity();
         void startActivityTmr();
         void stopActivityTmr();
+
+        uint8_t answerPing();
+
+        void addToSubscriptions(std::string, std::function<void(int,char*)>);
+        std::map<std::string, std::function<void(int,char*)> > subscriptions;
+
+    public:
+        MQTT(WiFi *wifi);
+
+        static MQTT* getInstance()
+        {
+            return instance;
+        }
+
+
         void activityPresent();
-
-        AWS_IoT_Client client;
-        char cPayload[100];
-
-        IoT_Publish_Message_Params paramsQOS0;
-        IoT_Client_Init_Params mqttInitParams;
-        IoT_Client_Connect_Params connectParams;
-
         uint8_t sendMQTTmsg(cJSON *s);
 
         // State Machine 
         void wifiConnected();
         void wifiDisconnected();
-        void established();
+        void pingReceived();
         void onError();
+        void subscribeTopic(std::string, std::function<void(int,char*)>);
+
+        bool isConnected(); 
 
         friend class MQTT_FSM_State;
         friend class MQTT_Init_State;

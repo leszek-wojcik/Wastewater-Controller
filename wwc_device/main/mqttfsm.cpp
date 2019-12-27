@@ -39,10 +39,16 @@ void MQTT_Init_State::onError()
     stateTransition(context->initState);
 }
 
-void MQTT_Init_State::established()
+void MQTT_Init_State::pingReceived()
 {
-    ESP_LOGE(__PRETTY_FUNCTION__, "established while in init state.");
+    ESP_LOGE("MQTT", "pingReceived while in init state.");
     abort();
+}
+
+void MQTT_Init_State::subscribeTopic(std::string s, std::function<void(int,char*)> f)
+{
+    ESP_LOGI("MQTT", "Requested subscribtion: %s", s.c_str());
+    context->addToSubscriptions(s,f);
 }
 
 void MQTT_Connecting_State::wifiConnected()
@@ -59,7 +65,7 @@ void MQTT_Connecting_State::wifiDisconnected()
 }
 
 
-void MQTT_Connecting_State::established()
+void MQTT_Connecting_State::pingReceived()
 {
     stateTransition(context->connectedState);
 }
@@ -98,10 +104,16 @@ void MQTT_Connecting_State::onError()
     stateTransition(context->initState);
 }
 
-void MQTT_Connected_State::established()
+void MQTT_Connecting_State::subscribeTopic(std::string s, std::function<void(int,char*)> f)
 {
-    ESP_LOGE(__PRETTY_FUNCTION__, "established while in established state.");
-    abort();
+    ESP_LOGI("MQTT", "Requested subscribtion: %s", s.c_str());
+    context->addToSubscriptions(s,f);
+}
+
+void MQTT_Connected_State::pingReceived()
+{
+    ESP_LOGI(__PRETTY_FUNCTION__, "pingReceived while in connected state.");
+    context->answerPing();
 }
 
 void MQTT_Connected_State::wifiDisconnected()
@@ -137,4 +149,10 @@ void MQTT_Connected_State::wifiConnected()
 {
     ESP_LOGE(__PRETTY_FUNCTION__, "wifi connected while in connected state.");
     abort();
+}
+
+void MQTT_Connected_State::subscribeTopic(std::string s, std::function<void(int,char*)> f)
+{
+    ESP_LOGI("MQTT", "Requested subscribtion: %s", s.c_str());
+    context->addToSubscriptions(s,f);
 }

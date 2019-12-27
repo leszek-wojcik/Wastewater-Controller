@@ -4,9 +4,11 @@ class WWC : public ActiveObject
 {
     private:
         TimerHandle_t aWWCtmr;
+        TimerHandle_t aLEDtmr;
         bool areation;
         bool circulation;
         int wwcCounter;
+        bool ledOn;
         
     public:
         WWC();
@@ -19,5 +21,6 @@ class WWC : public ActiveObject
         void updateControlPins();
 
         void controlOnTmr();
+        void ledOnTmr();
 };
 

@@ -19,9 +19,9 @@ MQTT *aMQTT;
 
 void createActiveObjects()
 {
-    aWWC = new WWC();
     aWiFi = new WiFi();
     aMQTT = new MQTT(aWiFi);
+    aWWC = new WWC();
 }
 
 

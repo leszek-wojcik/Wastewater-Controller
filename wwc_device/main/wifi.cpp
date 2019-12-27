@@ -38,7 +38,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 WiFi::WiFi()
 {
     ESP_LOGI("WiFi", "init");
-    alt = true;
+    alt = false;
     tcpip_adapter_init();
     ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();

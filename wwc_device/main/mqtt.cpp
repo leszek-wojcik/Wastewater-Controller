@@ -50,10 +50,14 @@ MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
     reconnectTmr = NULL;
     safeGuardTmr = NULL;
 
-    strcpy(topic,"wwc");
+    strcpy(topic,"wwc/");
+    strcat(topic,CONFIG_AWS_CLIENT_ID);
+    strcat(topic,"/control");
     topicLen = strlen(topic);
 
-    strcpy(pingTopic,"wwcping");
+    strcpy(pingTopic,"wwc/");
+    strcat(pingTopic,CONFIG_AWS_CLIENT_ID);
+    strcat(pingTopic,"/ping");
     pingTopicLen = strlen(pingTopic);
     activityInd = false;
 
@@ -137,6 +141,12 @@ uint8_t MQTT::sendMQTTmsg(cJSON *s)
     return xQueueSend(mrQueue, &mr, 0);
 }
 
+uint8_t MQTT::answerPing()
+{
+    printf("answer ping not yet implemented\n");
+    return 0;
+}
+
 void MQTT::wifiConnected()
 {
     auto mr = new MRequest(NULL, [=](){currentState->wifiConnected();});
@@ -149,9 +159,9 @@ void MQTT::wifiDisconnected()
     xQueueSend(mrQueue, &mr, 0);
 }
 
-void MQTT::established()
+void MQTT::pingReceived()
 {
-    auto mr = new MRequest(NULL,[=](){currentState->established();} );
+    auto mr = new MRequest(NULL,[=](){currentState->pingReceived();} );
     xQueueSend(mrQueue, &mr, 0);
 }
 
@@ -341,7 +351,7 @@ void ping_callback_handler(AWS_IoT_Client *pClient,
                                 (int) params->payloadLen, 
                                 (char *)params->payload);
 
-    MQTT::getInstance()->established();
+    MQTT::getInstance()->pingReceived();
 }
 
 bool MQTT::connectMQTT()
@@ -436,3 +446,20 @@ void MQTT::unsubscribeTopic()
     }
 
 }
+
+bool MQTT::isConnected()
+{
+    return (currentState == connectedState);
+}
+
+void MQTT::subscribeTopic(std::string s, std::function<void(int,char*)> f)
+{
+    auto mr = new MRequest(NULL,[=](){currentState->subscribeTopic(s,f);} );
+    xQueueSend(mrQueue, &mr, 0);
+}
+
+void MQTT::addToSubscriptions(std::string s, std::function<void(int,char*)> f)
+{
+    subscriptions[s] = f;
+}
+

@@ -26,21 +26,60 @@ WWC::WWC():ActiveObject("WWC",2048,6)
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 
     aWWCtmr = NULL;
+    aLEDtmr = NULL;
+
+    ledOn = false;
 
     createTimer (
             &aWWCtmr,
             [=] () { this->controlOnTmr(); },
-            //                600000/portTICK_PERIOD_MS  ); //10 minutes
-            5000/portTICK_PERIOD_MS  ); //5 sec
+            600000/portTICK_PERIOD_MS  ); //10 minutes
+
+    createTimer (
+            &aLEDtmr,
+            [=] () { this->ledOnTmr(); },
+            1500/portTICK_PERIOD_MS  ); //10 minutes
+
+    auto f = [] ( int len, char *s )
+    {
+        printf ("%d %s",len,s);
+    };
+
+    MQTT::getInstance()->subscribeTopic("ala",f);
 }
+
+void WWC::ledOnTmr()
+{
+    if (MQTT::getInstance()->isConnected())
+    {
+        if (ledOn == true)
+        {
+            return;
+        }
+
+        gpio_set_level(BLINK_GPIO, 1);
+        ledOn = true;
+    }
+    else
+    {
+        if (ledOn == true)
+        {
+            gpio_set_level(BLINK_GPIO, 0);
+            ledOn = false;
+        }
+        else
+        {
+            gpio_set_level(BLINK_GPIO, 1);
+            ledOn = true;
+        }
+       
+    }
+
+}
+
 
 void WWC::controlOnTmr()
 {
-
-    gpio_set_level(BLINK_GPIO, 1);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-    gpio_set_level(BLINK_GPIO, 0);
-    vTaskDelay(100 / portTICK_PERIOD_MS);
     
     disableCirculation();
     disableAreation();
