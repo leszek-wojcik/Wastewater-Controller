@@ -18,7 +18,6 @@ void MQTT_Init_State::wifiConnected()
 void MQTT_Init_State::wifiDisconnected()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "wifi disconnected in Init state");
-    stateTransition(context->initState);
 }
 
 void MQTT_Init_State::onEntry()

@@ -26,7 +26,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         case SYSTEM_EVENT_STA_DISCONNECTED:
             ESP_LOGW("WiFI", "WiFi Disconnect from ESP");
             MQTT::getInstance()->wifiDisconnected();
-            esp_wifi_connect();
+            //esp_wifi_connect();
             break;
 
         default:

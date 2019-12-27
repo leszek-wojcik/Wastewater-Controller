@@ -288,8 +288,9 @@ void MQTT::init()
     }
     disconnectWiFi();
     vTaskDelay(1000/portTICK_PERIOD_MS);
-    connectWiFi();
-    toggleWiFi();
+
+    auto mr = new MRequest(NULL,[=](){connectWiFi(); toggleWiFi();} );
+    xQueueSend(mrQueue, &mr, 0);
 }
 
 void MQTT::startInitTmr()
