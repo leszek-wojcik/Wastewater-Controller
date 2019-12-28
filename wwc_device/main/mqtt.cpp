@@ -117,28 +117,16 @@ void MQTT::throttle(uint32_t tmo)
     }
 }
 
-uint8_t MQTT::sendMQTTmsg(cJSON *s)
+void MQTT::subjectSend(MqttTopic_t sub, MqttMessage_t msg)
 {
+    executeMethod( [=](){ currentState->subjectSend( sub, msg );} );
+}
 
-    auto f = [=] () 
-        {
-            if (currentState != connectedState)
-            {
-                printf("MQTT not operational dropping mqtt msg\n");
-                cJSON_Delete(s);
-            }
-            else
-            {
-                sprintf(cPayload,"%s", cJSON_Print(s));
-                paramsQOS0.payloadLen = strlen(cPayload);
-//                printf("json at aws context:\n%s",cJSON_Print(s));
-                aws_iot_mqtt_publish(&client, topic, topicLen, &paramsQOS0);
-                cJSON_Delete(s);
-            }
-        };
-
-    auto mr = new MRequest(NULL, f);
-    return xQueueSend(mrQueue, &mr, 0);
+void MQTT::sendMQTTmsg(MqttTopic_t topic, MqttMessage_t msg )
+{
+    sprintf(cPayload,"%s",msg->c_str());
+    paramsQOS0.payloadLen = strlen(cPayload);
+    aws_iot_mqtt_publish(&client, topic->c_str(), topic->length(), &paramsQOS0);
 }
 
 uint8_t MQTT::answerPing()
@@ -149,26 +137,22 @@ uint8_t MQTT::answerPing()
 
 void MQTT::wifiConnected()
 {
-    auto mr = new MRequest(NULL, [=](){currentState->wifiConnected();});
-    xQueueSend(mrQueue, &mr, 0);
+    executeMethod( [=](){currentState->wifiConnected();} );
 }
 
 void MQTT::wifiDisconnected()
 {
-    auto mr = new MRequest(NULL,[=](){currentState->wifiDisconnected();} );
-    xQueueSend(mrQueue, &mr, 0);
+    executeMethod( [=](){currentState->wifiDisconnected();});
 }
 
 void MQTT::pingReceived()
 {
-    auto mr = new MRequest(NULL,[=](){currentState->pingReceived();} );
-    xQueueSend(mrQueue, &mr, 0);
+    executeMethod( [=](){currentState->pingReceived();});
 }
 
 void MQTT::onError()
 {
-    auto mr = new MRequest(NULL,[=](){currentState->onError();} );
-    xQueueSend(mrQueue, &mr, 0);
+    executeMethod( [=](){currentState->onError();});
 }
 
 
@@ -299,8 +283,7 @@ void MQTT::init()
     disconnectWiFi();
     vTaskDelay(1000/portTICK_PERIOD_MS);
 
-    auto mr = new MRequest(NULL,[=](){connectWiFi(); toggleWiFi();} );
-    xQueueSend(mrQueue, &mr, 0);
+    executeMethod( [=](){connectWiFi(); toggleWiFi(); });
 }
 
 void MQTT::startInitTmr()
@@ -330,13 +313,31 @@ void iot_subscribe_callback_handler(AWS_IoT_Client *pClient,
                                 (int) params->payloadLen, 
                                 (char *)params->payload);
 
-    MQTT::getInstance()->activityPresent();
+
+    MqttTopic_t topic (new string( topicName, topicNameLen ));
+    MqttMessage_t msg (new string( (char*)params->payload, params->payloadLen ));
+
+    MQTT::getInstance()->dispatchMessage(topic,msg);
 
 }
 
-void MQTT::activityPresent()
+void MQTT::dispatchMessage(MqttTopic_t topic, MqttMessage_t msg)
+{
+    executeMethod( [=](){this->processIncommingMessage(topic,msg); }  );
+}
+
+
+void MQTT::processIncommingMessage(MqttTopic_t topic, MqttMessage_t msg  )
 {
     activityInd = true;
+    for (auto a : subscriptions)
+    {
+        if ( *a.first == *topic)
+        {
+            a.second(msg);
+            break;
+        }
+    }
 }
 
 void ping_callback_handler(AWS_IoT_Client *pClient, 
@@ -345,12 +346,7 @@ void ping_callback_handler(AWS_IoT_Client *pClient,
                                     IoT_Publish_Message_Params *params, 
                                     void *pData) 
 {
-    ESP_LOGI(__PRETTY_FUNCTION__, "Received from cloud");
-    ESP_LOGI(__PRETTY_FUNCTION__, "%.*s\t%.*s", topicNameLen, 
-                                topicName, 
-                                (int) params->payloadLen, 
-                                (char *)params->payload);
-
+    ESP_LOGI("MQTT", "...Received ping from cloud");
     MQTT::getInstance()->pingReceived();
 }
 
@@ -416,33 +412,40 @@ void MQTT::unsubscribePing()
 
 }
 
-void MQTT::subscribeTopic()
+void MQTT::subscribeTopics()
 {
     IoT_Error_t rc = FAILURE;
-    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", topic);
-    rc = aws_iot_mqtt_subscribe(&client, 
-                                topic, 
-                                topicLen, 
-                                QOS0, 
-                                iot_subscribe_callback_handler, 
-                                NULL);
 
-
-    if(SUCCESS != rc) 
+    for ( auto s: subscriptions)
     {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
+        ESP_LOGI("MQTT", "Subscribing to %s...", s.first->c_str());
+        rc = aws_iot_mqtt_subscribe(&client, 
+                                    s.first->c_str(), 
+                                    s.first->length(), 
+                                    QOS0, 
+                                    iot_subscribe_callback_handler, 
+                                    NULL);
+
+        if(SUCCESS != rc) 
+        {
+            ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
+            onError();
+            break;
+        }
     }
 }
 
-void MQTT::unsubscribeTopic()
+void MQTT::unsubscribeTopics()
 {
     IoT_Error_t rc = FAILURE;
-    ESP_LOGI(__PRETTY_FUNCTION__, "Unsubscribing %s...", pingTopic);
-
-    rc = aws_iot_mqtt_unsubscribe(&client, topic, topicLen);
-    if(SUCCESS != rc) 
+    for ( auto s: subscriptions)
     {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Error unsubscribing : %d ", rc);
+        ESP_LOGI("MQTT", "Unsubscribing %s...", s.first->c_str());
+        rc = aws_iot_mqtt_unsubscribe(&client, s.first->c_str(), s.first->length() );
+        if(SUCCESS != rc) 
+        {
+            ESP_LOGE("MQTT", "Error unsubscribing : %d ", rc);
+        }
     }
 
 }
@@ -452,13 +455,12 @@ bool MQTT::isConnected()
     return (currentState == connectedState);
 }
 
-void MQTT::subscribeTopic(std::string s, std::function<void(int,char*)> f)
+void MQTT::subscribeTopic(MqttTopic_t s, MqttTopicCallback_t f)
 {
-    auto mr = new MRequest(NULL,[=](){currentState->subscribeTopic(s,f);} );
-    xQueueSend(mrQueue, &mr, 0);
+    executeMethod( [=](){  currentState->subscribeTopic(s,f); });
 }
 
-void MQTT::addToSubscriptions(std::string s, std::function<void(int,char*)> f)
+void MQTT::addToSubscriptions(MqttTopic_t s, MqttTopicCallback_t f)
 {
     subscriptions[s] = f;
 }

@@ -3,16 +3,21 @@
 #include "esp_event_loop.h"
 #include "esp_log.h"
 
-
 #include "ActiveObject.h"
 #include "wwc.h"
 #include "wifi.h"
 #include "stdio.h"
-#include "mqtt.h"
 
 #include "cJSON.h"
 
 #define BLINK_GPIO (gpio_num_t)2
+
+#define WWC_TOPIC "wwc"
+#define SUBTOPIC_DIVIDER "/"
+#define CONTROL_SUBTOPIC "control"
+#define STATUS_SUBTOPIC "status"
+#define CONTROL_TOPIC WWC_TOPIC SUBTOPIC_DIVIDER CONFIG_AWS_CLIENT_ID SUBTOPIC_DIVIDER CONTROL_SUBTOPIC
+#define STATUS_TOPIC WWC_TOPIC SUBTOPIC_DIVIDER CONFIG_AWS_CLIENT_ID SUBTOPIC_DIVIDER STATUS_SUBTOPIC
 
 WWC::WWC():ActiveObject("WWC",2048,6)
 {
@@ -33,19 +38,42 @@ WWC::WWC():ActiveObject("WWC",2048,6)
     createTimer (
             &aWWCtmr,
             [=] () { this->controlOnTmr(); },
-            600000/portTICK_PERIOD_MS  ); //10 minutes
+            //600000/portTICK_PERIOD_MS  ); //10 minutes
+            15000/portTICK_PERIOD_MS  ); 
 
     createTimer (
             &aLEDtmr,
             [=] () { this->ledOnTmr(); },
             1500/portTICK_PERIOD_MS  ); //10 minutes
 
-    auto f = [] ( int len, char *s )
+
+    mqttMsg.reset(new string("msg body"));
+
+    MqttTopicCallback_t controlTopicCallback = [=] ( MqttMessage_t s )
     {
-        printf ("%d %s",len,s);
+        executeMethod ([=](){this->onControlTopic(s);});
     };
 
-    MQTT::getInstance()->subscribeTopic("ala",f);
+    MqttTopicCallback_t statusTopicCallback = [=] ( MqttMessage_t s )
+    {
+        executeMethod ([=](){this->onStatusTopic(s);});
+    };
+
+    mqttTopic.reset(new string(CONTROL_TOPIC));
+    MQTT::getInstance()->subscribeTopic(mqttTopic,controlTopicCallback);
+
+    mqttStatusTopic.reset(new string(STATUS_TOPIC));
+    MQTT::getInstance()->subscribeTopic(mqttStatusTopic,statusTopicCallback);
+}
+
+void WWC::onControlTopic(MqttMessage_t s)
+{
+        printf ("onControlTopic inside WWC %s\n",s->c_str());
+}
+
+void WWC::onStatusTopic(MqttMessage_t s)
+{
+        printf ("onStatusTopic inside WWC %s\n",s->c_str());
 }
 
 void WWC::ledOnTmr()
@@ -107,14 +135,15 @@ void WWC::controlOnTmr()
 
 void WWC::updateControlPins()
 {
+    //cJSON *json = NULL;
+    //json = cJSON_CreateObject();
+    //cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
+    //cJSON_AddBoolToObject(json, "areation", areation);
+    //cJSON_AddBoolToObject(json, "circulation", circulation);
+    //cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
 
-    cJSON *json = NULL;
-
-    json = cJSON_CreateObject();
-    cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
-    cJSON_AddBoolToObject(json, "areation", areation);
-    cJSON_AddBoolToObject(json, "circulation", circulation);
-    cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
-    MQTT::getInstance()->sendMQTTmsg(json);
+   
+    MQTT::getInstance()->subjectSend(mqttTopic, mqttMsg);
+    MQTT::getInstance()->subjectSend(mqttStatusTopic, mqttMsg);
 }
 

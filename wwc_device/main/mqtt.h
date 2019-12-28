@@ -1,14 +1,23 @@
+#ifndef MQTT_INCLUDED
+#define MQTT_INCLUDED
+
 #include "cJSON.h"
-#include "string.h"
 #include "aws_iot_mqtt_client_interface.h"
 #include "ActiveObject.h"
+#include <string>
+#include <memory>
 
+using namespace std;
 
 class WiFi;
 class MQTT_FSM_State;
 class MQTT_Init_State;
 class MQTT_Connecting_State;
 class MQTT_Connected_State;
+
+typedef shared_ptr<string> MqttTopic_t;
+typedef shared_ptr<string> MqttMessage_t;
+typedef function<void(MqttMessage_t)> MqttTopicCallback_t;
 
 class MQTT: public ActiveObject
 {
@@ -49,8 +58,9 @@ class MQTT: public ActiveObject
         bool connectMQTT();
         void subscribePing();
         void unsubscribePing();
-        void subscribeTopic();
-        void unsubscribeTopic();
+
+        void subscribeTopics();
+        void unsubscribeTopics();
 
         void createStateMachine();
 
@@ -80,8 +90,11 @@ class MQTT: public ActiveObject
 
         uint8_t answerPing();
 
-        void addToSubscriptions(std::string, std::function<void(int,char*)>);
-        std::map<std::string, std::function<void(int,char*)> > subscriptions;
+        void addToSubscriptions(MqttTopic_t, MqttTopicCallback_t );
+        map<MqttTopic_t, MqttTopicCallback_t > subscriptions;
+
+        void sendMQTTmsg(MqttTopic_t, MqttMessage_t );
+        void processIncommingMessage(MqttTopic_t, MqttMessage_t);
 
     public:
         MQTT(WiFi *wifi);
@@ -91,16 +104,15 @@ class MQTT: public ActiveObject
             return instance;
         }
 
-
-        void activityPresent();
-        uint8_t sendMQTTmsg(cJSON *s);
+        void dispatchMessage(MqttTopic_t topic, MqttMessage_t msg);
 
         // State Machine 
         void wifiConnected();
         void wifiDisconnected();
         void pingReceived();
         void onError();
-        void subscribeTopic(std::string, std::function<void(int,char*)>);
+        void subscribeTopic(MqttTopic_t, MqttTopicCallback_t );
+        void subjectSend(MqttTopic_t, MqttMessage_t);
 
         bool isConnected(); 
 
@@ -111,4 +123,5 @@ class MQTT: public ActiveObject
 
 };
 
+#endif
 
