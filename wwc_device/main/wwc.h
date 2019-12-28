@@ -14,7 +14,7 @@ class WWC : public ActiveObject
         int wwcCounter;
         bool ledOn;
 
-        MqttTopic_t mqttTopic;
+        MqttTopic_t mqttControlTopic;
         MqttTopic_t mqttStatusTopic;
         MqttMessage_t mqttMsg;
         
@@ -24,12 +24,14 @@ class WWC : public ActiveObject
         void onControlTopic(MqttMessage_t);
         void onStatusTopic(MqttMessage_t);
 
-        inline void disableCirculation() { circulation = false; }
         inline void enableCirculation() { circulation = true; }
-        inline void disableAreation() { areation = false; }
+        inline void disableCirculation() { circulation = false; }
+
         inline void enableAreation() { areation = true; }
+        inline void disableAreation() { areation = false; }
 
         void updateControlPins();
+        void sendStatus();
 
         void controlOnTmr();
         void ledOnTmr();

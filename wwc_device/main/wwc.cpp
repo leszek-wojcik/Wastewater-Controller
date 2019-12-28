@@ -38,8 +38,7 @@ WWC::WWC():ActiveObject("WWC",2048,6)
     createTimer (
             &aWWCtmr,
             [=] () { this->controlOnTmr(); },
-            //600000/portTICK_PERIOD_MS  ); //10 minutes
-            15000/portTICK_PERIOD_MS  ); 
+            600000/portTICK_PERIOD_MS  ); //10 minutes
 
     createTimer (
             &aLEDtmr,
@@ -47,28 +46,70 @@ WWC::WWC():ActiveObject("WWC",2048,6)
             1500/portTICK_PERIOD_MS  ); //10 minutes
 
 
-    mqttMsg.reset(new string("msg body"));
+    mqttMsg.reset(new string(""));
+    mqttControlTopic.reset(new string(CONTROL_TOPIC));
+    mqttStatusTopic.reset(new string(STATUS_TOPIC));
 
     MqttTopicCallback_t controlTopicCallback = [=] ( MqttMessage_t s )
     {
         executeMethod ([=](){this->onControlTopic(s);});
     };
 
-    MqttTopicCallback_t statusTopicCallback = [=] ( MqttMessage_t s )
-    {
-        executeMethod ([=](){this->onStatusTopic(s);});
-    };
-
-    mqttTopic.reset(new string(CONTROL_TOPIC));
-    MQTT::getInstance()->subscribeTopic(mqttTopic,controlTopicCallback);
-
-    mqttStatusTopic.reset(new string(STATUS_TOPIC));
-    MQTT::getInstance()->subscribeTopic(mqttStatusTopic,statusTopicCallback);
+    MQTT::getInstance()->subscribeTopic(mqttControlTopic,controlTopicCallback);
 }
 
 void WWC::onControlTopic(MqttMessage_t s)
 {
-        printf ("onControlTopic inside WWC %s\n",s->c_str());
+        cJSON *item;
+        cJSON *json = cJSON_Parse(s->c_str());
+
+        printf ("onControlTopic inside WWC %s\n",cJSON_Print(json));
+        item = cJSON_GetObjectItem(json,"areation");
+        if ( item != NULL )
+        {
+            if (cJSON_IsTrue(item))
+            {
+                enableAreation();
+            }
+            if (cJSON_IsFalse(item))
+            {
+                disableAreation();
+            }
+        }
+
+        item = cJSON_GetObjectItem(json,"circulation");
+        if ( item != NULL )
+        {
+            if (cJSON_IsTrue(item))
+            {
+                enableCirculation();
+            }
+            if (cJSON_IsFalse(item))
+            {
+                disableCirculation();
+            }
+        }
+
+        item = cJSON_GetObjectItem(json,"wwcCounter");
+        if ( item != NULL )
+        {
+            if (cJSON_IsNumber(item))
+            {
+                printf("adjusted wwcCounter to %d\n", item->valueint);
+                wwcCounter = item->valueint;
+            }
+        }
+
+        item = cJSON_GetObjectItem(json,"requestStatus");
+        if ( item != NULL )
+        {
+            if (cJSON_IsTrue(item))
+            {
+                sendStatus();
+            }
+        }
+
+        cJSON_Delete(json);
 }
 
 void WWC::onStatusTopic(MqttMessage_t s)
@@ -135,15 +176,21 @@ void WWC::controlOnTmr()
 
 void WWC::updateControlPins()
 {
-    //cJSON *json = NULL;
-    //json = cJSON_CreateObject();
-    //cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
-    //cJSON_AddBoolToObject(json, "areation", areation);
-    //cJSON_AddBoolToObject(json, "circulation", circulation);
-    //cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
-
-   
-    MQTT::getInstance()->subjectSend(mqttTopic, mqttMsg);
-    MQTT::getInstance()->subjectSend(mqttStatusTopic, mqttMsg);
+    //TBD
 }
+
+void WWC::sendStatus()
+{
+    cJSON *json = NULL;
+    json = cJSON_CreateObject();
+    cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
+    cJSON_AddBoolToObject(json, "areation", areation);
+    cJSON_AddBoolToObject(json, "circulation", circulation);
+    cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
+   
+    mqttMsg.reset ( new string( cJSON_Print(json))  );
+    MQTT::getInstance()->subjectSend(mqttStatusTopic, mqttMsg);
+    cJSON_Delete(json);
+}
+
 

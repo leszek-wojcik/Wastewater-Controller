@@ -29,11 +29,18 @@ myMQTTClient.configureDrainingFrequency(2)
 myMQTTClient.configureConnectDisconnectTimeout(10)
 myMQTTClient.configureMQTTOperationTimeout(5)
 myMQTTClient.connect()
-#myMQTTClient.subscribe("dupa", 1, customCallback)
+myMQTTClient.subscribe("wwc/myesp32/status", 1, customCallback)
 
 event = json.loads(injason)
 d = dateutil.parser.parse (event["time"])
 
-while True:
+message = dict()
+message["areation"] = False
+message["circulation"] = True
+message["wwcCounter"] = 15
+message["requestStatus"] = True
+
+myMQTTClient.publish("wwc/myesp32/control", json.dumps(message), 1)
+
+while(True):
     time.sleep(2)
-    myMQTTClient.publish("dupa", "costam", 1)
