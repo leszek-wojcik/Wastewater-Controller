@@ -30,17 +30,27 @@ myMQTTClient.configureConnectDisconnectTimeout(10)
 myMQTTClient.configureMQTTOperationTimeout(5)
 myMQTTClient.connect()
 myMQTTClient.subscribe("wwc/myesp32/status", 1, customCallback)
+myMQTTClient.subscribe("$aws/events/subscriptions/subscribed/myesp32", 1, customCallback)
 
 event = json.loads(injason)
 d = dateutil.parser.parse (event["time"])
 
+controlMessageTopic = "wwc/myesp32/control"
 message = dict()
+message["autoMode"] = True
 message["areation"] = False
 message["circulation"] = True
 message["wwcCounter"] = 15
 message["requestStatus"] = True
 
-myMQTTClient.publish("wwc/myesp32/control", json.dumps(message), 1)
+shadowMessage = dict()
+shadowMessage["autoMode"] = True
+shadowMessage["areation"] = True
+shadowMessage["circulation"] = True
+shadowMessage["areationFail"] = False
+shadowMessage["circulationFail"] = False
+
+#myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)
 
 while(True):
     time.sleep(2)

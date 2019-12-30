@@ -9,6 +9,8 @@ class WWC : public ActiveObject
     private:
         TimerHandle_t aWWCtmr;
         TimerHandle_t aLEDtmr;
+        TimerHandle_t backOffTmr;
+
         bool areation;
         bool circulation;
         int wwcCounter;
@@ -16,7 +18,13 @@ class WWC : public ActiveObject
 
         MqttTopic_t mqttControlTopic;
         MqttTopic_t mqttStatusTopic;
+        MqttTopic_t mqttTimeTopic;
+        MqttTopic_t mqttPingTopic;
         MqttMessage_t mqttMsg;
+
+        void obtainTime(void);
+        void onBackOffTmr(void);
+        void onTimeTopic(MqttMessage_t);
         
     public:
         WWC();

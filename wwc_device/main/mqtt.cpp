@@ -402,8 +402,6 @@ void MQTT::subscribePing()
 void MQTT::unsubscribePing()
 {
     IoT_Error_t rc = FAILURE;
-    ESP_LOGI(__PRETTY_FUNCTION__, "Unsubscribing %s...", pingTopic);
-
     rc = aws_iot_mqtt_unsubscribe(&client, pingTopic, pingTopicLen);
     if(SUCCESS != rc) 
     {
@@ -414,40 +412,56 @@ void MQTT::unsubscribePing()
 
 void MQTT::subscribeTopics()
 {
-    IoT_Error_t rc = FAILURE;
-
     for ( auto s: subscriptions)
     {
-        ESP_LOGI("MQTT", "Subscribing to %s...", s.first->c_str());
-        rc = aws_iot_mqtt_subscribe(&client, 
-                                    s.first->c_str(), 
-                                    s.first->length(), 
-                                    QOS0, 
-                                    iot_subscribe_callback_handler, 
+        executeSubscribeTopic ( s.first );
+    }
+}
+
+void MQTT::executeSubscribeTopic(MqttTopic_t topic)
+{
+
+    IoT_Error_t rc = FAILURE;
+    ESP_LOGI("MQTT", "Subscribing to %s...", topic->c_str());
+    rc = aws_iot_mqtt_subscribe(&client, 
+            topic->c_str(), 
+            topic->length(), 
+            QOS0, 
+            iot_subscribe_callback_handler, 
                                     NULL);
 
-        if(SUCCESS != rc) 
-        {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
-            onError();
-            break;
-        }
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
+        onError();
     }
+
 }
 
 void MQTT::unsubscribeTopics()
 {
-    IoT_Error_t rc = FAILURE;
     for ( auto s: subscriptions)
     {
-        ESP_LOGI("MQTT", "Unsubscribing %s...", s.first->c_str());
-        rc = aws_iot_mqtt_unsubscribe(&client, s.first->c_str(), s.first->length() );
-        if(SUCCESS != rc) 
-        {
-            ESP_LOGE("MQTT", "Error unsubscribing : %d ", rc);
-        }
+        executeUnsubscribeTopic(s.first);
     }
 
+}
+
+void MQTT::unsubscribeTopic(MqttTopic_t topic)
+{
+    executeMethod( [=] (){currentState->unsubscribeTopic(topic);} );
+}
+
+void MQTT::executeUnsubscribeTopic(MqttTopic_t topic)
+{
+    IoT_Error_t rc = FAILURE;
+
+    ESP_LOGI("MQTT", "Unsubscribing %s...", topic->c_str());
+    rc = aws_iot_mqtt_unsubscribe(&client, topic->c_str(), topic->length());
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "Error unsubscribing : %d ", rc);
+    }
 }
 
 bool MQTT::isConnected()
@@ -465,3 +479,7 @@ void MQTT::addToSubscriptions(MqttTopic_t s, MqttTopicCallback_t f)
     subscriptions[s] = f;
 }
 
+void MQTT::removeFromSubscriptions( MqttTopic_t t)
+{
+    subscriptions.erase(t);
+}

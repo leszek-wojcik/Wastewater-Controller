@@ -61,6 +61,12 @@ class MQTT: public ActiveObject
 
         void subscribeTopics();
         void unsubscribeTopics();
+        void executeSubscribeTopic(MqttTopic_t);
+        void executeUnsubscribeTopic(MqttTopic_t);
+        void addToSubscriptions(MqttTopic_t, MqttTopicCallback_t );
+        void removeFromSubscriptions(MqttTopic_t);
+        map<MqttTopic_t, MqttTopicCallback_t > subscriptions;
+
 
         void createStateMachine();
 
@@ -90,8 +96,6 @@ class MQTT: public ActiveObject
 
         uint8_t answerPing();
 
-        void addToSubscriptions(MqttTopic_t, MqttTopicCallback_t );
-        map<MqttTopic_t, MqttTopicCallback_t > subscriptions;
 
         void sendMQTTmsg(MqttTopic_t, MqttMessage_t );
         void processIncommingMessage(MqttTopic_t, MqttMessage_t);
@@ -113,7 +117,7 @@ class MQTT: public ActiveObject
         void onError();
         void subscribeTopic(MqttTopic_t, MqttTopicCallback_t );
         void subjectSend(MqttTopic_t, MqttMessage_t);
-
+        void unsubscribeTopic(MqttTopic_t);
         bool isConnected(); 
 
         friend class MQTT_FSM_State;

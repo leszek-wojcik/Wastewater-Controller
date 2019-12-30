@@ -8,16 +8,26 @@
 #include "wifi.h"
 #include "stdio.h"
 
+#include <chrono>
+
 #include "cJSON.h"
 
 #define BLINK_GPIO (gpio_num_t)2
 
-#define WWC_TOPIC "wwc"
-#define SUBTOPIC_DIVIDER "/"
+#define WWC_ "wwc"
+#define SLASH_ "/"
 #define CONTROL_SUBTOPIC "control"
 #define STATUS_SUBTOPIC "status"
-#define CONTROL_TOPIC WWC_TOPIC SUBTOPIC_DIVIDER CONFIG_AWS_CLIENT_ID SUBTOPIC_DIVIDER CONTROL_SUBTOPIC
-#define STATUS_TOPIC WWC_TOPIC SUBTOPIC_DIVIDER CONFIG_AWS_CLIENT_ID SUBTOPIC_DIVIDER STATUS_SUBTOPIC
+#define PING_SUBTOPIC "ping"
+#define SUBSCRIBTIONS_SUBTOPIC "$aws/events/subscriptions/subscribed"
+
+#define CONTROL_TOPIC WWC_ SLASH_ CONFIG_AWS_CLIENT_ID SLASH_ CONTROL_SUBTOPIC
+#define STATUS_TOPIC WWC_ SLASH_ CONFIG_AWS_CLIENT_ID SLASH_ STATUS_SUBTOPIC
+#define TIMESTAMP_TOPIC SUBSCRIBTIONS_SUBTOPIC SLASH_ CONFIG_AWS_CLIENT_ID
+#define PING_TOPIC WWC_ SLASH_ CONFIG_AWS_CLIENT_ID SLASH_ PING_SUBTOPIC
+
+using namespace std;
+using namespace std::chrono;
 
 WWC::WWC():ActiveObject("WWC",2048,6)
 {
@@ -32,23 +42,27 @@ WWC::WWC():ActiveObject("WWC",2048,6)
 
     aWWCtmr = NULL;
     aLEDtmr = NULL;
+    backOffTmr = NULL;
 
     ledOn = false;
 
     createTimer (
             &aWWCtmr,
             [=] () { this->controlOnTmr(); },
-            600000/portTICK_PERIOD_MS  ); //10 minutes
+            20000/portTICK_PERIOD_MS  ); //20 second
+//            600000/portTICK_PERIOD_MS  ); //10 minutes
 
     createTimer (
             &aLEDtmr,
             [=] () { this->ledOnTmr(); },
-            1500/portTICK_PERIOD_MS  ); //10 minutes
+            1500/portTICK_PERIOD_MS  );
 
 
     mqttMsg.reset(new string(""));
     mqttControlTopic.reset(new string(CONTROL_TOPIC));
     mqttStatusTopic.reset(new string(STATUS_TOPIC));
+    mqttTimeTopic.reset(new string(TIMESTAMP_TOPIC));
+    mqttPingTopic.reset(new string(PING_TOPIC));
 
     MqttTopicCallback_t controlTopicCallback = [=] ( MqttMessage_t s )
     {
@@ -112,6 +126,58 @@ void WWC::onControlTopic(MqttMessage_t s)
         cJSON_Delete(json);
 }
 
+void WWC::obtainTime()
+{
+    MqttTopicCallback_t timeTopicCallback = [=] ( MqttMessage_t s )
+    {
+        executeMethod ([=](){this->onTimeTopic(s);});
+    };
+
+    MQTT::getInstance()->subscribeTopic(mqttTimeTopic, timeTopicCallback);
+
+    createOneTimeTimer (
+            &backOffTmr,
+            [=] () { this->onBackOffTmr(); },
+            5000/portTICK_PERIOD_MS  ); //20 seonds
+}
+
+void WWC::onBackOffTmr(void)
+{
+    MQTT::getInstance()->unsubscribeTopic(mqttTimeTopic);
+    backOffTmr = NULL;
+}
+
+void WWC::onTimeTopic(MqttMessage_t s)
+{
+    printf ("onTimeTopic inside WWC %s\n",s->c_str());
+    system_clock::time_point tp;
+    cJSON *item;
+    cJSON *json = cJSON_Parse(s->c_str());
+    item = cJSON_GetObjectItem(json,"timestamp");
+    long es;
+
+
+    if ( item != NULL )
+    {
+        if ( cJSON_IsNumber(item) )
+        {
+
+            es = (long) (item->valuedouble / 1000);
+
+            printf ( " timestamp: %llu, \n", 
+                    (unsigned long long int) item->valuedouble);
+
+            struct timeval tv = { es, 0};
+            settimeofday (&tv, NULL);
+            tp = system_clock::now();
+            time_t t = system_clock::to_time_t(tp);
+            printf ( " %s\n", ctime(&t));
+        }
+    }
+    cJSON_Delete(json);
+
+}
+
 void WWC::onStatusTopic(MqttMessage_t s)
 {
         printf ("onStatusTopic inside WWC %s\n",s->c_str());
@@ -171,7 +237,8 @@ void WWC::controlOnTmr()
     wwcCounter++; 
 
     updateControlPins();
-
+    sendStatus();
+    obtainTime();
 }
 
 void WWC::updateControlPins()

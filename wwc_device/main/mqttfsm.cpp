@@ -58,6 +58,12 @@ void MQTT_Init_State::subjectSend(MqttTopic_t topic, MqttMessage_t message)
     ESP_LOGW("MQTT", "discarding msg for topic %s", topic->c_str());
 }
 
+void MQTT_Init_State::unsubscribeTopic(MqttTopic_t t)
+{
+    ESP_LOGI("MQTT", "removed from subscribtions: %s", t->c_str());
+    context->removeFromSubscriptions(t);
+}
+
 ////////////////////////
 void MQTT_Connecting_State::onEntry()
 {
@@ -123,6 +129,13 @@ void MQTT_Connecting_State::subjectSend(MqttTopic_t topic, MqttMessage_t message
     ESP_LOGW("MQTT", "discarding msg for topic %s", topic->c_str());
 }
 
+void MQTT_Connecting_State::unsubscribeTopic(MqttTopic_t t)
+{
+    ESP_LOGI("MQTT", "removed from subscribtions: %s", t->c_str());
+    context->removeFromSubscriptions(t);
+    context->executeUnsubscribeTopic(t);
+}
+
 ////////////////////////
 void MQTT_Connected_State::onEntry()
 {
@@ -169,10 +182,18 @@ void MQTT_Connected_State::subscribeTopic(MqttTopic_t s, MqttTopicCallback_t f)
 {
     ESP_LOGI("MQTT", "Requested subscribtion: %s", s->c_str());
     context->addToSubscriptions(s,f);
+    context->executeSubscribeTopic(s);
 }
 
 void MQTT_Connected_State::subjectSend(MqttTopic_t t, MqttMessage_t m )
 {
     ESP_LOGI(__PRETTY_FUNCTION__, ".");
     context->sendMQTTmsg(t,m);
+}
+
+void MQTT_Connected_State::unsubscribeTopic(MqttTopic_t t)
+{
+    ESP_LOGI("MQTT", "removed from subscribtions: %s", t->c_str());
+    context->removeFromSubscriptions(t);
+    context->executeUnsubscribeTopic(t);
 }
