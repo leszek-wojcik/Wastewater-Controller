@@ -4,10 +4,13 @@
 #include "cJSON.h"
 #include "aws_iot_mqtt_client_interface.h"
 #include "ActiveObject.h"
+#include <string.h>
 #include <string>
+#include <chrono>
 #include <memory>
 
 using namespace std;
+using namespace std::chrono;
 
 class WiFi;
 class MQTT_FSM_State;
@@ -28,10 +31,8 @@ class MQTT: public ActiveObject
         static MQTT_Connecting_State* connectingState;
         static MQTT_Connected_State* connectedState;
 
-        char topic[20];
-        int topicLen;
-        char pingTopic[20];
-        int pingTopicLen;
+        MqttTopic_t mqttTimeTopic;
+
         char cPayload[100];
 
         IoT_Publish_Message_Params paramsQOS0;
@@ -40,7 +41,7 @@ class MQTT: public ActiveObject
         AWS_IoT_Client client;
 
         TimerHandle_t throttleTmr;
-        TimerHandle_t pingTmr;
+        TimerHandle_t obtainTimeTmr;
         TimerHandle_t activityTmr;
         TimerHandle_t initTmr;
         TimerHandle_t reconnectTmr;
@@ -56,13 +57,15 @@ class MQTT: public ActiveObject
         void disconnectWiFi();
 
         bool connectMQTT();
-        void subscribePing();
-        void unsubscribePing();
+        void executeDisconnect();
+        void executeSubscribeTime();
+        void executeUnsubscribeTime();
 
         void subscribeTopics();
         void unsubscribeTopics();
         void executeSubscribeTopic(MqttTopic_t);
         void executeUnsubscribeTopic(MqttTopic_t);
+        void executeSubjectSend(MqttTopic_t, MqttMessage_t );
         void addToSubscriptions(MqttTopic_t, MqttTopicCallback_t );
         void removeFromSubscriptions(MqttTopic_t);
         map<MqttTopic_t, MqttTopicCallback_t > subscriptions;
@@ -74,9 +77,10 @@ class MQTT: public ActiveObject
         void startThrottleTmr();
         void stopThrottleTmr();
 
-        void ping();
-        void startPingTmr();
-        void stopPingTmr();
+        void obtainTime();
+        void startObtainTimeTmr();
+        void stopObtainTimeTmr();
+        void processTimeMessage( MqttMessage_t msg);
 
         void safeGuard();
         void startSafeGuardTmr();
@@ -97,7 +101,6 @@ class MQTT: public ActiveObject
         uint8_t answerPing();
 
 
-        void sendMQTTmsg(MqttTopic_t, MqttMessage_t );
         void processIncommingMessage(MqttTopic_t, MqttMessage_t);
 
     public:
@@ -113,7 +116,7 @@ class MQTT: public ActiveObject
         // State Machine 
         void wifiConnected();
         void wifiDisconnected();
-        void pingReceived();
+        void timeReceived(MqttMessage_t);
         void onError();
         void subscribeTopic(MqttTopic_t, MqttTopicCallback_t );
         void subjectSend(MqttTopic_t, MqttMessage_t);

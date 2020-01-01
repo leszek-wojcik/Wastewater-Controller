@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include <string.h>
 
 #include "esp_log.h"
+
 
 #include "ActiveObject.h"
 #include "MethodRequest.h"
@@ -9,6 +9,7 @@
 #include "wifi.h"
 #include "mqtt.h"
 #include "mqttfsm.h"
+#include "topics.h"
 
 #include "cJSON.h"
 #include "aws_iot_mqtt_client_interface.h"
@@ -39,26 +40,37 @@ void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data)
     MQTT::getInstance()->onError();
 }
 
+void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, 
+                                    char *topicName, 
+                                    uint16_t topicNameLen, 
+                                    IoT_Publish_Message_Params *params, 
+                                    void *pData) 
+{
+    ESP_LOGI("MQTT", " Received from could %.*s\t%.*s", topicNameLen, 
+                                topicName, 
+                                (int) params->payloadLen, 
+                                (char *)params->payload);
+
+
+    MqttTopic_t topic (new string( topicName, topicNameLen ));
+    MqttMessage_t msg (new string( (char*)params->payload, params->payloadLen ));
+
+    MQTT::getInstance()->dispatchMessage(topic,msg);
+}
+
 MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
 {
     instance = this;
 
-    throttleTmr  = NULL;
-    pingTmr      = NULL;
-    activityTmr  = NULL;
-    initTmr      = NULL;
-    reconnectTmr = NULL;
-    safeGuardTmr = NULL;
+    throttleTmr         = NULL;
+    obtainTimeTmr       = NULL;
+    activityTmr         = NULL;
+    initTmr             = NULL;
+    reconnectTmr        = NULL;
+    safeGuardTmr        = NULL;
 
-    strcpy(topic,"wwc/");
-    strcat(topic,CONFIG_AWS_CLIENT_ID);
-    strcat(topic,"/control");
-    topicLen = strlen(topic);
+    mqttTimeTopic.reset(new string(TIMESTAMP_TOPIC));
 
-    strcpy(pingTopic,"wwc/");
-    strcat(pingTopic,CONFIG_AWS_CLIENT_ID);
-    strcat(pingTopic,"/ping");
-    pingTopicLen = strlen(pingTopic);
     activityInd = false;
 
     createStateMachine();
@@ -122,7 +134,7 @@ void MQTT::subjectSend(MqttTopic_t sub, MqttMessage_t msg)
     executeMethod( [=](){ currentState->subjectSend( sub, msg );} );
 }
 
-void MQTT::sendMQTTmsg(MqttTopic_t topic, MqttMessage_t msg )
+void MQTT::executeSubjectSend(MqttTopic_t topic, MqttMessage_t msg )
 {
     sprintf(cPayload,"%s",msg->c_str());
     paramsQOS0.payloadLen = strlen(cPayload);
@@ -145,9 +157,9 @@ void MQTT::wifiDisconnected()
     executeMethod( [=](){currentState->wifiDisconnected();});
 }
 
-void MQTT::pingReceived()
+void MQTT::timeReceived(MqttMessage_t msg)
 {
-    executeMethod( [=](){currentState->pingReceived();});
+    executeMethod( [=](){currentState->timeReceived(msg);});
 }
 
 void MQTT::onError()
@@ -171,27 +183,20 @@ void MQTT::stopThrottleTmr()
     stopTimer (&throttleTmr);
 }
 
-void MQTT::ping()
-{
-    ESP_LOGI("MQTT", "ping ...");
-    sprintf(cPayload,"%s", "ping");
-    paramsQOS0.payloadLen = strlen(cPayload);
-    aws_iot_mqtt_publish(&client, pingTopic, pingTopicLen, &paramsQOS0);
-}
 
-void MQTT::startPingTmr()
+void MQTT::startObtainTimeTmr()
 {
-    ESP_LOGI("MQTT", "start ping timer");
+    ESP_LOGI("MQTT", "start Obtain time timer");
     createTimer (
-            &pingTmr ,  
-            [=] () { ping(); },
+            &obtainTimeTmr ,  
+            [=] () { obtainTime(); },
             10000/portTICK_PERIOD_MS  );
 }
 
-void MQTT::stopPingTmr()
+void MQTT::stopObtainTimeTmr()
 {
     ESP_LOGI("MQTT", "stop ping timer");
-    stopTimer (&pingTmr);
+    stopTimer (&obtainTimeTmr);
 }
 
 void MQTT::safeGuard()
@@ -302,24 +307,6 @@ void MQTT::stopInitTmr()
     stopTimer(&initTmr);
 }
 
-void iot_subscribe_callback_handler(AWS_IoT_Client *pClient, 
-                                    char *topicName, 
-                                    uint16_t topicNameLen, 
-                                    IoT_Publish_Message_Params *params, 
-                                    void *pData) 
-{
-    ESP_LOGI("MQTT", " Received from could %.*s\t%.*s", topicNameLen, 
-                                topicName, 
-                                (int) params->payloadLen, 
-                                (char *)params->payload);
-
-
-    MqttTopic_t topic (new string( topicName, topicNameLen ));
-    MqttMessage_t msg (new string( (char*)params->payload, params->payloadLen ));
-
-    MQTT::getInstance()->dispatchMessage(topic,msg);
-
-}
 
 void MQTT::dispatchMessage(MqttTopic_t topic, MqttMessage_t msg)
 {
@@ -340,16 +327,6 @@ void MQTT::processIncommingMessage(MqttTopic_t topic, MqttMessage_t msg  )
     }
 }
 
-void ping_callback_handler(AWS_IoT_Client *pClient, 
-                                    char *topicName, 
-                                    uint16_t topicNameLen, 
-                                    IoT_Publish_Message_Params *params, 
-                                    void *pData) 
-{
-    ESP_LOGI("MQTT", "...Received ping from cloud");
-    MQTT::getInstance()->pingReceived();
-}
-
 bool MQTT::connectMQTT()
 {
     IoT_Error_t rc = FAILURE;
@@ -367,6 +344,20 @@ bool MQTT::connectMQTT()
 
 }
 
+void MQTT::executeDisconnect()
+{
+    IoT_Error_t rc = FAILURE;
+    ESP_LOGI("MQTT", "Disconnecting ...");
+    rc = aws_iot_mqtt_disconnect(&client);
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGW(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
+                rc, 
+                mqttInitParams.pHostURL, 
+                mqttInitParams.port);
+    }
+}
+
 void MQTT::connectWiFi()
 {
     wifi->connect();
@@ -382,32 +373,17 @@ void MQTT::toggleWiFi()
     wifi->toggle();
 }
 
-void MQTT::subscribePing()
+void MQTT::executeSubscribeTime()
 {
-    IoT_Error_t rc = FAILURE;
-    ESP_LOGI(__PRETTY_FUNCTION__, "Subscribing to %s...", pingTopic);
-    rc = aws_iot_mqtt_subscribe(&client, 
-                                pingTopic, 
-                                pingTopicLen, 
-                                QOS0, 
-                                ping_callback_handler, 
-                                NULL);
-
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Error subscribing : %d ", rc);
-    }
+    // We are calling this function within MQTT AO context
+    addToSubscriptions(mqttTimeTopic, [=](MqttMessage_t a) { this->timeReceived(a); } );
+    executeSubscribeTopic ( mqttTimeTopic ); 
 }
 
-void MQTT::unsubscribePing()
+void MQTT::executeUnsubscribeTime()
 {
-    IoT_Error_t rc = FAILURE;
-    rc = aws_iot_mqtt_unsubscribe(&client, pingTopic, pingTopicLen);
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Error unsubscribing : %d ", rc);
-    }
-
+    executeUnsubscribeTopic( mqttTimeTopic );
+    removeFromSubscriptions( mqttTimeTopic );
 }
 
 void MQTT::subscribeTopics()
@@ -482,4 +458,29 @@ void MQTT::addToSubscriptions(MqttTopic_t s, MqttTopicCallback_t f)
 void MQTT::removeFromSubscriptions( MqttTopic_t t)
 {
     subscriptions.erase(t);
+}
+
+void MQTT::processTimeMessage( MqttMessage_t msg)
+{
+    system_clock::time_point tp;
+    cJSON *item;
+    cJSON *json = cJSON_Parse(msg->c_str());
+    item = cJSON_GetObjectItem(json,"timestamp");
+    long es;
+
+    if ( item != NULL )
+    {
+        if ( cJSON_IsNumber(item) )
+        {
+            //convert ms to seconds
+            es = (long) (item->valuedouble / 1000);
+
+            struct timeval tv = { es, 0};
+            settimeofday (&tv, NULL);
+            tp = system_clock::now();
+            time_t t = system_clock::to_time_t(tp);
+            printf ("Received Time: %s\n", ctime(&t));
+        }
+    }
+    cJSON_Delete(json);
 }

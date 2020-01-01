@@ -41,9 +41,9 @@ void MQTT_Init_State::wifiDisconnected()
     ESP_LOGI(__PRETTY_FUNCTION__, "wifi disconnected in Init state");
 }
 
-void MQTT_Init_State::pingReceived()
+void MQTT_Init_State::timeReceived(MqttMessage_t msg)
 {
-    ESP_LOGE("MQTT", "pingReceived while in init state.");
+    ESP_LOGE("MQTT", "timeReceived while in init state.");
     abort();
 }
 
@@ -70,10 +70,7 @@ void MQTT_Connecting_State::onEntry()
     context->startSafeGuardTmr();
     if (context->connectMQTT())
     {
-        context->subscribePing();
-        context->ping();
-        context->startPingTmr();
-        context->throttle(1000);
+        context->executeSubscribeTime();
         context->startThrottleTmr();
     }
     else 
@@ -86,11 +83,9 @@ void MQTT_Connecting_State::onExit()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "exit connecting state ...");
 
-    context->stopPingTmr();
     context->stopThrottleTmr();
     context->stopReconnectTmr();
     context->stopSafeGuardTmr();
-    context->unsubscribePing();
 }
 
 void MQTT_Connecting_State::onError()
@@ -112,8 +107,10 @@ void MQTT_Connecting_State::wifiDisconnected()
 }
 
 
-void MQTT_Connecting_State::pingReceived()
+void MQTT_Connecting_State::timeReceived(MqttMessage_t msg)
 {
+    context->processTimeMessage(msg);
+    context->executeUnsubscribeTime();
     stateTransition(context->connectedState);
 }
 
@@ -157,13 +154,13 @@ void MQTT_Connected_State::onExit()
 void MQTT_Connected_State::onError()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Error in connected state ...");
+    context->executeDisconnect();
     stateTransition(context->connectingState);
 }
 
-void MQTT_Connected_State::pingReceived()
+void MQTT_Connected_State::timeReceived(MqttMessage_t msg)
 {
-    ESP_LOGI(__PRETTY_FUNCTION__, "pingReceived while in connected state.");
-    context->answerPing();
+    ESP_LOGE(__PRETTY_FUNCTION__, "timeReceived while in connected state.");
 }
 
 void MQTT_Connected_State::wifiDisconnected()
@@ -188,7 +185,7 @@ void MQTT_Connected_State::subscribeTopic(MqttTopic_t s, MqttTopicCallback_t f)
 void MQTT_Connected_State::subjectSend(MqttTopic_t t, MqttMessage_t m )
 {
     ESP_LOGI(__PRETTY_FUNCTION__, ".");
-    context->sendMQTTmsg(t,m);
+    context->executeSubjectSend(t,m);
 }
 
 void MQTT_Connected_State::unsubscribeTopic(MqttTopic_t t)
