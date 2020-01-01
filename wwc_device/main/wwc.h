@@ -18,12 +18,14 @@ class WWC : public ActiveObject
         MqttTopic_t mqttControlTopic;
         MqttTopic_t mqttStatusTopic;
         MqttMessage_t mqttMsg;
+        MQTT* mqttService;
         
     public:
-        WWC();
+        WWC(MQTT *);
 
         void onControlTopic(MqttMessage_t);
         void onStatusTopic(MqttMessage_t);
+        void onMqttCallback( bool connected, bool timeUpdated);
 
         inline void enableCirculation() { circulation = true; }
         inline void disableCirculation() { circulation = false; }

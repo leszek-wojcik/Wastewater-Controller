@@ -74,6 +74,20 @@ MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
     activityInd = false;
 
     createStateMachine();
+    stateCallback       = NULL;
+}
+
+void MQTT::registerStateCallback(MqttStateCallback_t callback)
+{
+    stateCallback = callback;
+}
+
+void MQTT::runStateCallback(bool connected, bool timeUpdated)
+{
+    if (stateCallback !=NULL)
+    {
+        stateCallback(connected, timeUpdated);
+    }
 }
 
 void MQTT::initParams()
@@ -190,13 +204,19 @@ void MQTT::startObtainTimeTmr()
     createTimer (
             &obtainTimeTmr ,  
             [=] () { obtainTime(); },
-            10000/portTICK_PERIOD_MS  );
+            10800000/portTICK_PERIOD_MS  ); //3hr
 }
 
 void MQTT::stopObtainTimeTmr()
 {
     ESP_LOGI("MQTT", "stop ping timer");
     stopTimer (&obtainTimeTmr);
+}
+
+void MQTT::obtainTime()
+{
+    ESP_LOGI("MQTT", "Atttempt To obtain time...");
+    executeSubscribeTime();
 }
 
 void MQTT::safeGuard()

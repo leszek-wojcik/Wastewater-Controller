@@ -17,10 +17,11 @@
 
 
 
-WWC::WWC():ActiveObject("WWC",2048,6)
+WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
 {
     ESP_LOGI("WWC", "init");
 
+    mqttService = mqtt;
     wwcCounter = 0;
     areation = false;
     circulation = false;
@@ -54,8 +55,21 @@ WWC::WWC():ActiveObject("WWC",2048,6)
         executeMethod ([=](){this->onControlTopic(s);});
     };
 
-    MQTT::getInstance()->subscribeTopic(mqttControlTopic,controlTopicCallback);
+    mqttService->subscribeTopic(mqttControlTopic,controlTopicCallback);
+    mqttService->registerStateCallback( 
+        [=](bool connected,bool timeUpdated) { onMqttCallback(connected, timeUpdated);}       
+        );
 }
+
+void WWC::onMqttCallback( bool connected, bool timeUpdated)
+{
+    if (timeUpdated)
+    {
+        executeMethod([](){printf("timeUpdated\n");});
+    }
+}
+
+
 
 void WWC::onControlTopic(MqttMessage_t s)
 {
@@ -112,10 +126,6 @@ void WWC::onControlTopic(MqttMessage_t s)
 }
 
 
-//void WWC::onTimeTopic(MqttMessage_t s)
-//{
-//
-//}
 
 void WWC::onStatusTopic(MqttMessage_t s)
 {
@@ -124,7 +134,7 @@ void WWC::onStatusTopic(MqttMessage_t s)
 
 void WWC::ledOnTmr()
 {
-    if (MQTT::getInstance()->isConnected())
+    if (mqttService->isConnected())
     {
         if (ledOn == true)
         {
@@ -194,7 +204,7 @@ void WWC::sendStatus()
     cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
    
     mqttMsg.reset ( new string( cJSON_Print(json))  );
-    MQTT::getInstance()->subjectSend(mqttStatusTopic, mqttMsg);
+    mqttService->subjectSend(mqttStatusTopic, mqttMsg);
     cJSON_Delete(json);
 }
 

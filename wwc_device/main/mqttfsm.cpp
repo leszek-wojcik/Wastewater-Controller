@@ -137,18 +137,22 @@ void MQTT_Connecting_State::unsubscribeTopic(MqttTopic_t t)
 void MQTT_Connected_State::onEntry()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Connected ...");
+    context->runStateCallback(true,true);
     context->subscribeTopics();
     context->startThrottleTmr();
     context->startActivityTmr();
+    context->startObtainTimeTmr();
     context->throttle(1000);
 }
 
 void MQTT_Connected_State::onExit()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "exit connected state ...");
+    context->runStateCallback(false,false);
     context->unsubscribeTopics();
     context->stopThrottleTmr();
     context->stopActivityTmr();
+    context->stopObtainTimeTmr();
 }
 
 void MQTT_Connected_State::onError()
@@ -160,7 +164,9 @@ void MQTT_Connected_State::onError()
 
 void MQTT_Connected_State::timeReceived(MqttMessage_t msg)
 {
-    ESP_LOGE(__PRETTY_FUNCTION__, "timeReceived while in connected state.");
+    context->processTimeMessage(msg);
+    context->executeUnsubscribeTime();
+    context->runStateCallback(true,true);
 }
 
 void MQTT_Connected_State::wifiDisconnected()

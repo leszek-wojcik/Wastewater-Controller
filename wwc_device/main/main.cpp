@@ -21,7 +21,7 @@ void createActiveObjects()
 {
     aWiFi = new WiFi();
     aMQTT = new MQTT(aWiFi);
-    aWWC = new WWC();
+    aWWC = new WWC(aMQTT);
 }
 
 

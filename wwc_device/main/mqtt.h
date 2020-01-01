@@ -21,6 +21,7 @@ class MQTT_Connected_State;
 typedef shared_ptr<string> MqttTopic_t;
 typedef shared_ptr<string> MqttMessage_t;
 typedef function<void(MqttMessage_t)> MqttTopicCallback_t;
+typedef function<void(bool,bool)> MqttStateCallback_t;
 
 class MQTT: public ActiveObject
 {
@@ -46,6 +47,8 @@ class MQTT: public ActiveObject
         TimerHandle_t initTmr;
         TimerHandle_t reconnectTmr;
         TimerHandle_t safeGuardTmr;
+
+        MqttStateCallback_t stateCallback;
 
         bool activityInd;
         WiFi *wifi;
@@ -100,6 +103,7 @@ class MQTT: public ActiveObject
 
         uint8_t answerPing();
 
+        void runStateCallback(bool, bool);
 
         void processIncommingMessage(MqttTopic_t, MqttMessage_t);
 
@@ -112,6 +116,7 @@ class MQTT: public ActiveObject
         }
 
         void dispatchMessage(MqttTopic_t topic, MqttMessage_t msg);
+        void registerStateCallback(MqttStateCallback_t);
 
         // State Machine 
         void wifiConnected();
