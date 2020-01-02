@@ -73,10 +73,10 @@ void WWC::onMqttCallback( bool connected, bool timeUpdated)
 
 void WWC::onControlTopic(MqttMessage_t s)
 {
+
         cJSON *item;
         cJSON *json = cJSON_Parse(s->c_str());
 
-        printf ("onControlTopic inside WWC %s\n",cJSON_Print(json));
         item = cJSON_GetObjectItem(json,"areation");
         if ( item != NULL )
         {
@@ -108,7 +108,6 @@ void WWC::onControlTopic(MqttMessage_t s)
         {
             if (cJSON_IsNumber(item))
             {
-                printf("adjusted wwcCounter to %d\n", item->valueint);
                 wwcCounter = item->valueint;
             }
         }
@@ -203,9 +202,13 @@ void WWC::sendStatus()
     cJSON_AddBoolToObject(json, "circulation", circulation);
     cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
    
-    mqttMsg.reset ( new string( cJSON_Print(json))  );
+    char *str = cJSON_Print(json);
+    mqttMsg.reset ( new string( str )  );
+    free (str);
+
     mqttService->subjectSend(mqttStatusTopic, mqttMsg);
     cJSON_Delete(json);
+    heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 }
 
 

@@ -150,6 +150,7 @@ void MQTT_Connected_State::onExit()
     ESP_LOGI(__PRETTY_FUNCTION__, "exit connected state ...");
     context->runStateCallback(false,false);
     context->unsubscribeTopics();
+    context->executeDisconnect();
     context->stopThrottleTmr();
     context->stopActivityTmr();
     context->stopObtainTimeTmr();
@@ -158,7 +159,6 @@ void MQTT_Connected_State::onExit()
 void MQTT_Connected_State::onError()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "Error in connected state ...");
-    context->executeDisconnect();
     stateTransition(context->connectingState);
 }
 

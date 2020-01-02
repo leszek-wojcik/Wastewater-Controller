@@ -284,7 +284,7 @@ void MQTT::startActivityTmr()
     createTimer (
             &activityTmr,
             [=] () { activity(); },
-            600000/portTICK_PERIOD_MS  );
+            1000000/portTICK_PERIOD_MS  );
 }
 void MQTT::stopActivityTmr()
 {
