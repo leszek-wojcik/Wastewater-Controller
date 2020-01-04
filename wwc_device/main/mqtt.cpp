@@ -188,7 +188,7 @@ void MQTT::startThrottleTmr()
     createTimer (
             &throttleTmr, 
             [=] () { throttle(); },
-            1000/portTICK_PERIOD_MS  );
+            1000);
 }
 
 void MQTT::stopThrottleTmr()
@@ -204,7 +204,7 @@ void MQTT::startObtainTimeTmr()
     createTimer (
             &obtainTimeTmr ,  
             [=] () { obtainTime(); },
-            10800000/portTICK_PERIOD_MS  ); //3hr
+            10800000); //3hr
 }
 
 void MQTT::stopObtainTimeTmr()
@@ -231,7 +231,7 @@ void MQTT::startSafeGuardTmr()
     createTimer (
             &safeGuardTmr, 
             [=] () { safeGuard(); },
-            32000/portTICK_PERIOD_MS  );
+            32000);
 }
 
 void MQTT::stopSafeGuardTmr()
@@ -259,7 +259,7 @@ void MQTT::startReconnectTmr()
     createOneTimeTimer (
             &reconnectTmr,
             [=] () { reconnectMQTT(); },
-            15000/portTICK_PERIOD_MS  );
+            15000);
 }
 
 void MQTT::stopReconnectTmr()
@@ -284,7 +284,7 @@ void MQTT::startActivityTmr()
     createTimer (
             &activityTmr,
             [=] () { activity(); },
-            1000000/portTICK_PERIOD_MS  );
+            1000000);
 }
 void MQTT::stopActivityTmr()
 {
@@ -317,7 +317,7 @@ void MQTT::startInitTmr()
     createTimer (
             &initTmr ,
             [=] () {init();},
-            15000/portTICK_PERIOD_MS);
+            15000);
 
 }
 void MQTT::stopInitTmr()

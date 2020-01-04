@@ -37,13 +37,13 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     createTimer (
             &aWWCtmr,
             [=] () { this->controlOnTmr(); },
-//            20000/portTICK_PERIOD_MS  ); //20 second
-            600000/portTICK_PERIOD_MS  ); //10 minutes
+//            20000); //20 second
+            600000); //10 minutes
 
     createTimer (
             &aLEDtmr,
             [=] () { this->ledOnTmr(); },
-            1500/portTICK_PERIOD_MS  );
+            1500);
 
 
     mqttMsg.reset(new string(""));

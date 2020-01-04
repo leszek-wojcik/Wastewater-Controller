@@ -13,6 +13,8 @@ using namespace std;
 class MethodRequestBase;
 class MRequest;
 
+typedef TimerHandle_t AOTimer_t;
+typedef TickType_t AODurationMS_t;
 
 class ActiveObject
 {
@@ -22,17 +24,17 @@ class ActiveObject
 
         ActiveObject(string name="\0",uint16_t stackSize=configMINIMAL_STACK_SIZE, UBaseType_t priority=tskIDLE_PRIORITY);
 
-        TimerHandle_t createOneTimeTimer(
-                TimerHandle_t *tmr,
+        AOTimer_t createOneTimeTimer(
+                AOTimer_t *tmr,
                 const std::function<void()> &f, 
-                const TickType_t period );
+                const AODurationMS_t period );
 
-        TimerHandle_t createTimer (
-                TimerHandle_t *tmr,
+        AOTimer_t createTimer (
+                AOTimer_t *tmr,
                 const std::function<void()> &f, 
-                const TickType_t period );
+                const AODurationMS_t period );
 
-        void stopTimer(TimerHandle_t *tmr);
+        void stopTimer(AOTimer_t *tmr);
 
         uint8_t executeMethod(const std::function<void()> &);
 

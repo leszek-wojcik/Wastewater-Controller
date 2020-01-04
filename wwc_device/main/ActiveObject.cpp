@@ -36,8 +36,8 @@ ActiveObject::ActiveObject(string name, uint16_t stackSize , UBaseType_t priorit
 
 }
 
-TimerHandle_t ActiveObject::createOneTimeTimer (   
-        TimerHandle_t *tmr,
+AOTimer_t ActiveObject::createOneTimeTimer (   
+        AOTimer_t *tmr,
         const std::function<void()> &f, 
         const TickType_t period )
 {
@@ -52,7 +52,7 @@ TimerHandle_t ActiveObject::createOneTimeTimer (
 
     *tmr = xTimerCreate
         ( "tmr",
-          period,
+          period/portTICK_PERIOD_MS,
           0,
           mr,
           ActiveObjectTimerCallback );
@@ -62,7 +62,7 @@ TimerHandle_t ActiveObject::createOneTimeTimer (
     return *tmr;
 }
 
-void ActiveObject::stopTimer(TimerHandle_t *tmr)
+void ActiveObject::stopTimer(AOTimer_t *tmr)
 {
     if (*tmr == NULL)
     {
@@ -73,8 +73,8 @@ void ActiveObject::stopTimer(TimerHandle_t *tmr)
     *tmr = NULL;
 }
 
-TimerHandle_t ActiveObject::createTimer (   
-        TimerHandle_t *tmr,
+AOTimer_t ActiveObject::createTimer (   
+        AOTimer_t *tmr,
         const std::function<void()> &f, 
         const TickType_t period )
 {
@@ -88,7 +88,7 @@ TimerHandle_t ActiveObject::createTimer (
 
     *tmr = xTimerCreate
         ( "tmr",
-          period,
+          period/portTICK_PERIOD_MS,
           1,
           mr,
           ActiveObjectTimerCallback );

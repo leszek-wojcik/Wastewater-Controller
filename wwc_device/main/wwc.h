@@ -7,8 +7,8 @@ using namespace std;
 class WWC : public ActiveObject
 {
     private:
-        TimerHandle_t aWWCtmr;
-        TimerHandle_t aLEDtmr;
+        AOTimer_t aWWCtmr;
+        AOTimer_t aLEDtmr;
 
         bool areation;
         bool circulation;

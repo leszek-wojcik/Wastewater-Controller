@@ -41,12 +41,12 @@ class MQTT: public ActiveObject
         IoT_Client_Connect_Params connectParams;
         AWS_IoT_Client client;
 
-        TimerHandle_t throttleTmr;
-        TimerHandle_t obtainTimeTmr;
-        TimerHandle_t activityTmr;
-        TimerHandle_t initTmr;
-        TimerHandle_t reconnectTmr;
-        TimerHandle_t safeGuardTmr;
+        AOTimer_t throttleTmr;
+        AOTimer_t obtainTimeTmr;
+        AOTimer_t activityTmr;
+        AOTimer_t initTmr;
+        AOTimer_t reconnectTmr;
+        AOTimer_t safeGuardTmr;
 
         MqttStateCallback_t stateCallback;
 
