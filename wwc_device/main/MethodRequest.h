@@ -9,10 +9,15 @@ class ActiveObject;
 class MRequest
 {
     public:
-        MRequest(ActiveObject *a, std::function<void()> f, void *callerID=NULL, bool persistent=false):
+        MRequest(   ActiveObject *a, 
+                    std::function<void()> f, 
+                    void *callerID=NULL, 
+                    bool persistent=false):
             ao(a),
             callerID(callerID),
-            persistent(persistent)
+            persistent(persistent),
+            timer(false),
+            timerHandle(NULL)
         {
             func = new std::function<void()>(f);
         }
@@ -28,23 +33,32 @@ class MRequest
         // method pointer that will be called my MRequest execution
         std::function<void()> *func;
 
-
         // Persistance flag. This flag signals no need for releasing memory for
         // particular method request object
         bool persistent;
-
-        void setPersistent(bool p)
+        inline void setPersistent(bool p)
         {
             persistent = p;
         }
     
-        bool isPersistent()
+        inline bool isPersistent()
         {
             if (persistent)
                 return true;
             else
                 return false;
         }
+
+        // timer flag. Indicates method request is timer
+        bool timer;
+        AOTimer_t *timerHandle ;
+
+        inline void setTimer (AOTimer_t *t)
+        {
+            timer = true;
+            timerHandle = t;
+        }
+
 
         ActiveObject *getActiveObject()
         {

@@ -42,6 +42,8 @@ message["areation"] = False
 message["circulation"] = True
 message["wwcCounter"] = 15
 message["requestStatus"] = True
+message["normalPeriod"] = 10000
+message["normalDutyCycle"] = 0.1
 
 shadowMessage = dict()
 shadowMessage["autoMode"] = True
@@ -51,6 +53,6 @@ shadowMessage["areationFail"] = False
 shadowMessage["circulationFail"] = False
 
 
-while(True):
-    time.sleep(5)
-    myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)
+#while(True):
+#    time.sleep(5)
+myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)

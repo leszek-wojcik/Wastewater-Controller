@@ -49,6 +49,7 @@ AOTimer_t ActiveObject::createOneTimeTimer (
 
     auto mr = new MRequest( this, f);
     mr->setPersistent(false);
+    mr->setTimer(tmr);
 
     *tmr = xTimerCreate
         ( "tmr",
@@ -66,7 +67,6 @@ void ActiveObject::stopTimer(AOTimer_t *tmr)
 {
     if (*tmr == NULL)
     {
-        printf("timer was not stopped\n");
         return;
     }
     xTimerStop( *tmr, 0 );
@@ -80,11 +80,13 @@ AOTimer_t ActiveObject::createTimer (
 {
 
     if (*tmr !=NULL) {
+        printf("timer was not created \n");
         return NULL;
     }
 
     auto mr = new MRequest( this, f);
     mr->setPersistent(true);
+    mr->setTimer(tmr);
 
     *tmr = xTimerCreate
         ( "tmr",
@@ -139,6 +141,20 @@ void ActiveObjectTaskFunction( void *q)
     for (;;) 
     {
         xQueueReceive( queue, &mr, portMAX_DELAY );
+
+        // Since timers are dispached by FreeRtos timer task which runs on
+        // different priority than ao it might happen that timer was
+        // intentionaly canceled by ao. this is to detect such scenario in
+        // order to avoid such timer execution.
+        if ( mr->timer ) 
+        {
+            if (*(mr->timerHandle) == NULL)
+            {
+                delete mr;
+                mr = NULL;
+                continue;
+            }
+        }
 
         (*(mr->func))();
 

@@ -29,13 +29,32 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     gpio_pad_select_gpio(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 
-    aWWCtmr = NULL;
+
+    reportStatusTmr = NULL;
     aLEDtmr = NULL;
+    areationOnTmr = NULL;
+    areationOffTmr = NULL;
+    cycleTmr = NULL;
+    circulationOnTmr = NULL;
+
+    cycleTmrValue = 24 * 60 * 60 *1000; //24 hours
+    areationOnTmrValue =  90 * 60 *1000; //90 minutes
+    areationOffTmrValue = 30 * 60 *1000; //30 minutes
+    circulationOnTmrValue = 10 * 60 *1000; // 10 minutes
+
+    // this coresponds to above
+    normalPeriod = 120 * 60 * 1000;
+    normalDutyCycle = 0.75;
+    
+    //cycleTmrValue = 30*1000; 
+    //areationOnTmrValue = 2000; 
+    //areationOffTmrValue = 3000; //30 minutes
+    //circulationOnTmrValue = 5000; // 10 minutes
 
     ledOn = false;
 
     createTimer (
-            &aWWCtmr,
+            &reportStatusTmr,
             [=] () { this->controlOnTmr(); },
 //            20000); //20 second
             600000); //10 minutes
@@ -44,6 +63,14 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
             &aLEDtmr,
             [=] () { this->ledOnTmr(); },
             1500);
+    
+    startCycleTimer();
+
+    enableAreation();
+    disableCirculation();
+    updateControlPins();
+
+    startAreationOnTmr();
 
 
     mqttMsg.reset(new string(""));
@@ -59,6 +86,18 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     mqttService->registerStateCallback( 
         [=](bool connected,bool timeUpdated) { onMqttCallback(connected, timeUpdated);}       
         );
+}
+void WWC::restartCycle(void)
+{
+    stopAreationOnTmr();
+    stopCirculationOnTmr();
+    stopAreationOffTmr ();
+
+    disableCirculation();
+    enableAreation();
+    updateControlPins();
+
+    startAreationOnTmr();
 }
 
 void WWC::onMqttCallback( bool connected, bool timeUpdated)
@@ -103,15 +142,6 @@ void WWC::onControlTopic(MqttMessage_t s)
             }
         }
 
-        item = cJSON_GetObjectItem(json,"wwcCounter");
-        if ( item != NULL )
-        {
-            if (cJSON_IsNumber(item))
-            {
-                wwcCounter = item->valueint;
-            }
-        }
-
         item = cJSON_GetObjectItem(json,"requestStatus");
         if ( item != NULL )
         {
@@ -121,9 +151,35 @@ void WWC::onControlTopic(MqttMessage_t s)
             }
         }
 
+        item = cJSON_GetObjectItem(json,"normalPeriod");
+        if ( item != NULL )
+        {
+            if (cJSON_IsNumber(item))
+            {
+                normalPeriod = item->valueint;
+            }
+        }
+
+        item = cJSON_GetObjectItem(json,"normalDutyCycle");
+        if ( item != NULL )
+        {
+            if (cJSON_IsNumber(item))
+            {
+                normalDutyCycle = item->valuedouble;
+            }
+        }
+        
+
         cJSON_Delete(json);
+        updateConfiguration();
+        restartCycle();
 }
 
+void WWC::updateConfiguration()
+{
+    areationOnTmrValue =  normalPeriod * normalDutyCycle;
+    areationOffTmrValue = normalPeriod - areationOnTmrValue;
+}
 
 
 void WWC::onStatusTopic(MqttMessage_t s)
@@ -163,34 +219,12 @@ void WWC::ledOnTmr()
 
 void WWC::controlOnTmr()
 {
-    
-    disableCirculation();
-    disableAreation();
-    
-    if (wwcCounter >= 144)
-    {
-        wwcCounter = 0;
-    }
-
-    if (wwcCounter == 0)
-    {
-        enableCirculation();
-    }
-
-    if ( wwcCounter % 3 )
-    {
-        enableAreation();
-    }
-
-    wwcCounter++; 
-
-    updateControlPins();
     sendStatus();
 }
 
 void WWC::updateControlPins()
 {
-    //TBD
+    printf ("A%dC%d\n", areation, circulation);
 }
 
 void WWC::sendStatus()
@@ -208,7 +242,93 @@ void WWC::sendStatus()
 
     mqttService->subjectSend(mqttStatusTopic, mqttMsg);
     cJSON_Delete(json);
-    heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 }
 
 
+void WWC::startAreationOnTmr()
+{
+    createTimer( &areationOnTmr,
+                        [=]() {onAreationOnTmrExpiry();},
+                        areationOnTmrValue );
+}
+
+void WWC::onAreationOnTmrExpiry()
+{
+    stopAreationOnTmr();
+    disableAreation();
+    disableCirculation();
+    updateControlPins();
+    startAreationOffTmr();
+}
+
+void WWC::stopAreationOnTmr()
+{
+    stopTimer( &areationOnTmr );
+}
+
+void WWC::startAreationOffTmr()
+{
+    createTimer ( &areationOffTmr,
+                        [=]() { onAreationOffTmrExpiry();},
+                        areationOffTmrValue);
+}
+
+void WWC::onAreationOffTmrExpiry()
+{
+    stopAreationOffTmr();
+    enableAreation();
+    disableCirculation();
+    updateControlPins();
+    startAreationOnTmr();
+}
+
+void WWC::stopAreationOffTmr()
+{
+    stopTimer( &areationOffTmr );
+}
+
+void WWC::startCycleTimer()
+{
+    createTimer( &cycleTmr,
+                [=](){onCycleTmrExpiry();},
+                cycleTmrValue);
+}
+
+void WWC::onCycleTmrExpiry()
+{
+    printf("\n");
+
+    stopAreationOnTmr();
+    stopAreationOffTmr();
+    stopCirculationOnTmr();
+
+    disableAreation();
+    enableCirculation();
+    updateControlPins();
+
+    startCirculationOnTmr();
+}
+
+void WWC::stopCycleTimer()
+{
+    stopTimer( &cycleTmr );
+}
+
+void WWC::startCirculationOnTmr()
+{
+    createTimer( &circulationOnTmr,
+                [=](){ onCirculationOnTmrExpiry(); },
+                circulationOnTmrValue );
+}
+void WWC::onCirculationOnTmrExpiry()
+{
+    stopCirculationOnTmr();
+    disableCirculation();
+    enableAreation();
+    startAreationOnTmr();
+    updateControlPins();
+}
+void WWC::stopCirculationOnTmr()
+{
+   stopTimer ( &circulationOnTmr ); 
+}
