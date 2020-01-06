@@ -109,6 +109,7 @@ void MQTT_Connecting_State::wifiDisconnected()
 
 void MQTT_Connecting_State::timeReceived(MqttMessage_t msg)
 {
+    ESP_LOGI(__PRETTY_FUNCTION__, "time received while in connecting state.");
     context->processTimeMessage(msg);
     context->executeUnsubscribeTime();
     stateTransition(context->connectedState);

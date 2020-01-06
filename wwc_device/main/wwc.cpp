@@ -22,7 +22,6 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     ESP_LOGI("WWC", "init");
 
     mqttService = mqtt;
-    wwcCounter = 0;
     areation = false;
     circulation = false;
 
@@ -45,19 +44,14 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     // this coresponds to above
     normalPeriod = 120 * 60 * 1000;
     normalDutyCycle = 0.75;
-    
-    //cycleTmrValue = 30*1000; 
-    //areationOnTmrValue = 2000; 
-    //areationOffTmrValue = 3000; //30 minutes
-    //circulationOnTmrValue = 5000; // 10 minutes
+    circulationStartGMTOffset = -60 * 60 * 1000;
 
     ledOn = false;
 
     createTimer (
             &reportStatusTmr,
             [=] () { this->controlOnTmr(); },
-//            20000); //20 second
-            600000); //10 minutes
+            600000); //10 minute
 
     createTimer (
             &aLEDtmr,
@@ -65,12 +59,6 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
             1500);
     
     startCycleTimer();
-
-    enableAreation();
-    disableCirculation();
-    updateControlPins();
-
-    startAreationOnTmr();
 
 
     mqttMsg.reset(new string(""));
@@ -86,6 +74,14 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     mqttService->registerStateCallback( 
         [=](bool connected,bool timeUpdated) { onMqttCallback(connected, timeUpdated);}       
         );
+
+
+    enableAreation();
+    disableCirculation();
+    updateControlPins();
+
+    startAreationOnTmr();
+
 }
 void WWC::restartCycle(void)
 {
@@ -104,15 +100,53 @@ void WWC::onMqttCallback( bool connected, bool timeUpdated)
 {
     if (timeUpdated)
     {
-        executeMethod([](){printf("timeUpdated\n");});
+        executeMethod( [=](){ onTimeUpdate(); } );
     }
 }
 
+void WWC::onTimeUpdate()
+{
 
+    //time_t t;
+    auto tp = system_clock::now();
+    milliseconds timeToMidnight;
+    milliseconds timeToCirculation;
+
+    timeToMidnight = duration_cast<milliseconds>(hours(24))
+                   - ( duration_cast<milliseconds>(tp.time_since_epoch()) 
+                   % duration_cast<milliseconds>(hours(24))); 
+                    
+
+    // Check if current time falls into negative offset. if so then addjust
+    if ( timeToMidnight + milliseconds(circulationStartGMTOffset) < milliseconds(0))
+    {
+        timeToCirculation = timeToMidnight 
+                            + duration_cast<milliseconds>(hours(24)) 
+                            + milliseconds(circulationStartGMTOffset) ;
+    }
+    else
+    {
+        timeToCirculation = timeToMidnight + milliseconds(circulationStartGMTOffset);
+    }
+
+    if ( !circulationOnTmr )
+    {
+        cycleTmrValue = timeToCirculation.count();
+        stopCycleTimer();
+        startCycleTimer();
+        printf ("setting cycle timer %lld minutes from now\n", 
+                duration_cast<minutes>(timeToCirculation).count()); 
+    }  
+    else
+    {
+        printf ("skipping cycle adjustment for sake of successful current cycle\n" );
+    }
+    
+
+}
 
 void WWC::onControlTopic(MqttMessage_t s)
 {
-
         cJSON *item;
         cJSON *json = cJSON_Parse(s->c_str());
 
@@ -169,6 +203,14 @@ void WWC::onControlTopic(MqttMessage_t s)
             }
         }
         
+        item = cJSON_GetObjectItem(json,"circulationStartGMTOffset");
+        if ( item != NULL )
+        {
+            if (cJSON_IsNumber(item))
+            {
+                circulationStartGMTOffset = item->valuedouble;
+            }
+        }
 
         cJSON_Delete(json);
         updateConfiguration();
@@ -225,6 +267,7 @@ void WWC::controlOnTmr()
 void WWC::updateControlPins()
 {
     printf ("A%dC%d\n", areation, circulation);
+    sendStatus();
 }
 
 void WWC::sendStatus()
@@ -234,7 +277,6 @@ void WWC::sendStatus()
     cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
-    cJSON_AddNumberToObject(json, "wwcCounter", wwcCounter);
    
     char *str = cJSON_Print(json);
     mqttMsg.reset ( new string( str )  );
@@ -296,7 +338,7 @@ void WWC::startCycleTimer()
 
 void WWC::onCycleTmrExpiry()
 {
-    printf("\n");
+    printf(__PRETTY_FUNCTION__);
 
     stopAreationOnTmr();
     stopAreationOffTmr();

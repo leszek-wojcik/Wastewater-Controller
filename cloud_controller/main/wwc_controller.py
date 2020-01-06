@@ -5,11 +5,8 @@ import dateutil.parser
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
 def customCallback(client, userdata, message):
-    print("Received a new message: ")
-    print(message.payload)
-    print("from topic: ")
-    print(message.topic)
-    print("--------------\n\n")
+    print(datetime.datetime.now())
+    print( json.loads( message.payload.decode("utf-8") ))
 
 injason = """
 {
@@ -29,7 +26,7 @@ myMQTTClient.configureDrainingFrequency(2)
 myMQTTClient.configureConnectDisconnectTimeout(10)
 myMQTTClient.configureMQTTOperationTimeout(5)
 myMQTTClient.connect()
-#myMQTTClient.subscribe("wwc/myesp32/status", 1, customCallback)
+myMQTTClient.subscribe("wwc/myesp32/status", 1, customCallback)
 #myMQTTClient.subscribe("$aws/events/subscriptions/subscribed/myesp32", 1, customCallback)
 
 event = json.loads(injason)
@@ -53,6 +50,6 @@ shadowMessage["areationFail"] = False
 shadowMessage["circulationFail"] = False
 
 
-#while(True):
-#    time.sleep(5)
-myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)
+while(True):
+    time.sleep(5)
+#myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)

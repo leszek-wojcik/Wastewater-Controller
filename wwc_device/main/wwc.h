@@ -3,6 +3,7 @@
 #include "mqtt.h"
 
 using namespace std;
+using namespace std::chrono;
 
 class WWC : public ActiveObject
 {
@@ -22,7 +23,6 @@ class WWC : public ActiveObject
 
         bool areation;
         bool circulation;
-        int wwcCounter;
         bool ledOn;
 
         MqttTopic_t mqttControlTopic;
@@ -32,9 +32,11 @@ class WWC : public ActiveObject
 
         int     normalPeriod;
         double  normalDutyCycle;
+        int     circulationStartGMTOffset;
 
         void updateConfiguration();
         void restartCycle();
+        void onTimeUpdate();
         
     public:
         WWC(MQTT *);

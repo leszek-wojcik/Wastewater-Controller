@@ -150,9 +150,16 @@ void MQTT::subjectSend(MqttTopic_t sub, MqttMessage_t msg)
 
 void MQTT::executeSubjectSend(MqttTopic_t topic, MqttMessage_t msg )
 {
+    IoT_Error_t rc = SUCCESS;
+    activityInd = true;
     sprintf(cPayload,"%s",msg->c_str());
     paramsQOS0.payloadLen = strlen(cPayload);
-    aws_iot_mqtt_publish(&client, topic->c_str(), topic->length(), &paramsQOS0);
+    rc = aws_iot_mqtt_publish(&client, topic->c_str(), topic->length(), &paramsQOS0);
+    if (rc !=SUCCESS)
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "error form mqqt yield");
+        onError();
+    }
 }
 
 uint8_t MQTT::answerPing()
@@ -499,7 +506,8 @@ void MQTT::processTimeMessage( MqttMessage_t msg)
             settimeofday (&tv, NULL);
             tp = system_clock::now();
             time_t t = system_clock::to_time_t(tp);
-            printf ("Received Time: %s\n", ctime(&t));
+
+            ESP_LOGI("MQTT", "%s",ctime(&t));
         }
     }
     cJSON_Delete(json);
