@@ -19,7 +19,7 @@ class MRequest
             timer(false),
             timerHandle(NULL)
         {
-            func = new std::function<void()>(f);
+            func = f;
         }
 
         // Active Object. This is subject for method request. 
@@ -31,7 +31,7 @@ class MRequest
 
         // function call object (c++11) that binds arguments along with object
         // method pointer that will be called my MRequest execution
-        std::function<void()> *func;
+        std::function<void()> func;
 
         // Persistance flag. This flag signals no need for releasing memory for
         // particular method request object
@@ -67,7 +67,6 @@ class MRequest
 
         ~MRequest()
         {
-            delete func;
         }
         
 };

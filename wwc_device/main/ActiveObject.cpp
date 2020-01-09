@@ -36,41 +36,26 @@ ActiveObject::ActiveObject(string name, uint16_t stackSize , UBaseType_t priorit
 
 }
 
-AOTimer_t ActiveObject::createOneTimeTimer (   
-        AOTimer_t *tmr,
-        const std::function<void()> &f, 
-        const TickType_t period )
-{
-
-    if (*tmr !=NULL) {
-        printf("timer was not created \n");
-        return NULL;
-    }
-
-    auto mr = new MRequest( this, f);
-    mr->setPersistent(false);
-    mr->setTimer(tmr);
-
-    *tmr = xTimerCreate
-        ( "tmr",
-          period/portTICK_PERIOD_MS,
-          0,
-          mr,
-          ActiveObjectTimerCallback );
-
-    xTimerStart(*tmr,0);
-
-    return *tmr;
-}
-
 void ActiveObject::stopTimer(AOTimer_t *tmr)
 {
-    if (*tmr == NULL)
-    {
-        return;
-    }
-    xTimerStop( *tmr, 0 );
-    *tmr = NULL;
+    xTimerStop( *tmr, portMAX_DELAY );
+}
+
+void ActiveObject::startTimer(AOTimer_t *tmr)
+{
+    xTimerStart(*tmr,portMAX_DELAY);
+}
+
+bool ActiveObject::isTimerActive( AOTimer_t *tmr)
+{
+    return xTimerIsTimerActive( *tmr );
+}
+
+void ActiveObject::changeTimerPeriod(AOTimer_t *tmr, const TickType_t period)
+{
+    xTimerChangePeriod( *tmr,
+            period/portTICK_PERIOD_MS,
+            portMAX_DELAY );
 }
 
 AOTimer_t ActiveObject::createTimer (   
@@ -78,11 +63,6 @@ AOTimer_t ActiveObject::createTimer (
         const std::function<void()> &f, 
         const TickType_t period )
 {
-
-    if (*tmr !=NULL) {
-        printf("timer was not created \n");
-        return NULL;
-    }
 
     auto mr = new MRequest( this, f);
     mr->setPersistent(true);
@@ -95,7 +75,6 @@ AOTimer_t ActiveObject::createTimer (
           mr,
           ActiveObjectTimerCallback );
 
-    xTimerStart(*tmr,0);
     return *tmr;
 }
 
@@ -156,7 +135,7 @@ void ActiveObjectTaskFunction( void *q)
             }
         }
 
-        (*(mr->func))();
+        mr->func();
 
         // If callerID is set this mean that calling task expects notification
         // after function call end

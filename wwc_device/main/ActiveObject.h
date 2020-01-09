@@ -24,17 +24,16 @@ class ActiveObject
 
         ActiveObject(string name="\0",uint16_t stackSize=configMINIMAL_STACK_SIZE, UBaseType_t priority=tskIDLE_PRIORITY);
 
-        AOTimer_t createOneTimeTimer(
-                AOTimer_t *tmr,
-                const std::function<void()> &f, 
-                const AODurationMS_t period );
-
         AOTimer_t createTimer (
                 AOTimer_t *tmr,
                 const std::function<void()> &f, 
                 const AODurationMS_t period );
 
+
+        void startTimer(AOTimer_t *tmr);
         void stopTimer(AOTimer_t *tmr);
+        bool isTimerActive( AOTimer_t *tmr);
+        void changeTimerPeriod(AOTimer_t *, const TickType_t);
 
         uint8_t executeMethod(const std::function<void()> &);
 

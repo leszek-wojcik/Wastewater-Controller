@@ -28,14 +28,6 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     gpio_pad_select_gpio(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 
-
-    reportStatusTmr = NULL;
-    aLEDtmr = NULL;
-    areationOnTmr = NULL;
-    areationOffTmr = NULL;
-    cycleTmr = NULL;
-    circulationOnTmr = NULL;
-
     cycleTmrValue = 24 * 60 * 60 *1000; //24 hours
     areationOnTmrValue =  90 * 60 *1000; //90 minutes
     areationOffTmrValue = 30 * 60 *1000; //30 minutes
@@ -46,17 +38,44 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     normalDutyCycle = 0.75;
     circulationStartGMTOffset = -60 * 60 * 1000;
 
-    ledOn = false;
-
+    reportStatusTmr = NULL;
     createTimer (
             &reportStatusTmr,
             [=] () { this->controlOnTmr(); },
             600000); //10 minute
 
+    aLEDtmr = NULL;
     createTimer (
             &aLEDtmr,
             [=] () { this->ledOnTmr(); },
             1500);
+
+    areationOnTmr = NULL;
+    createTimer( &areationOnTmr,
+                        [=]() {onAreationOnTmrExpiry();},
+                        areationOnTmrValue );
+
+    areationOffTmr = NULL;
+    createTimer ( &areationOffTmr,
+                        [=]() { onAreationOffTmrExpiry();},
+                        areationOffTmrValue);
+
+    cycleTmr = NULL;
+    createTimer( &cycleTmr,
+                [=](){onCycleTmrExpiry();},
+                cycleTmrValue);
+
+    circulationOnTmr = NULL;
+    createTimer( &circulationOnTmr,
+                [=](){ onCirculationOnTmrExpiry(); },
+                circulationOnTmrValue );
+
+
+    ledOn = false;
+
+    startTimer(&reportStatusTmr);
+
+    startTimer(&aLEDtmr);
     
     startCycleTimer();
 
@@ -129,7 +148,8 @@ void WWC::onTimeUpdate()
         timeToCirculation = timeToMidnight + milliseconds(circulationStartGMTOffset);
     }
 
-    if ( !circulationOnTmr )
+    //This is wrong
+    if ( isTimerActive(&circulationOnTmr) )
     {
         cycleTmrValue = timeToCirculation.count();
         stopCycleTimer();
@@ -277,6 +297,7 @@ void WWC::sendStatus()
     cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
+    cJSON_AddNumberToObject(json, "freeHeap", heap_caps_get_free_size(MALLOC_CAP_8BIT));
    
     char *str = cJSON_Print(json);
     mqttMsg.reset ( new string( str )  );
@@ -289,13 +310,14 @@ void WWC::sendStatus()
 
 void WWC::startAreationOnTmr()
 {
-    createTimer( &areationOnTmr,
-                        [=]() {onAreationOnTmrExpiry();},
-                        areationOnTmrValue );
+    changeTimerPeriod(&areationOnTmr, areationOnTmrValue);
+    startTimer(&areationOnTmr);
 }
 
 void WWC::onAreationOnTmrExpiry()
 {
+    printf(__PRETTY_FUNCTION__);
+    printf("\n");
     stopAreationOnTmr();
     disableAreation();
     disableCirculation();
@@ -310,13 +332,14 @@ void WWC::stopAreationOnTmr()
 
 void WWC::startAreationOffTmr()
 {
-    createTimer ( &areationOffTmr,
-                        [=]() { onAreationOffTmrExpiry();},
-                        areationOffTmrValue);
+    changeTimerPeriod( &areationOffTmr, areationOffTmrValue);
+    startTimer ( &areationOffTmr);
 }
 
 void WWC::onAreationOffTmrExpiry()
 {
+    printf(__PRETTY_FUNCTION__);
+    printf("\n");
     stopAreationOffTmr();
     enableAreation();
     disableCirculation();
@@ -331,14 +354,14 @@ void WWC::stopAreationOffTmr()
 
 void WWC::startCycleTimer()
 {
-    createTimer( &cycleTmr,
-                [=](){onCycleTmrExpiry();},
-                cycleTmrValue);
+    changeTimerPeriod(&cycleTmr, cycleTmrValue);
+    startTimer(&cycleTmr);
 }
 
 void WWC::onCycleTmrExpiry()
 {
     printf(__PRETTY_FUNCTION__);
+    printf("\n");
 
     stopAreationOnTmr();
     stopAreationOffTmr();
@@ -358,12 +381,13 @@ void WWC::stopCycleTimer()
 
 void WWC::startCirculationOnTmr()
 {
-    createTimer( &circulationOnTmr,
-                [=](){ onCirculationOnTmrExpiry(); },
-                circulationOnTmrValue );
+    changeTimerPeriod ( &circulationOnTmr, circulationOnTmrValue );
+    startTimer( &circulationOnTmr);
 }
 void WWC::onCirculationOnTmrExpiry()
 {
+    printf(__PRETTY_FUNCTION__);
+    printf("\n");
     stopCirculationOnTmr();
     disableCirculation();
     enableAreation();

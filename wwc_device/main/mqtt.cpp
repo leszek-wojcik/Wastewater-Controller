@@ -63,11 +63,41 @@ MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
     instance = this;
 
     throttleTmr         = NULL;
+    createTimer (
+            &throttleTmr, 
+            [=] () { throttle(); },
+            1000);
+
     obtainTimeTmr       = NULL;
+    createTimer (
+            &obtainTimeTmr ,  
+            [=] () { obtainTime(); },
+            10800000); //3hr
+
     activityTmr         = NULL;
+    createTimer (
+            &activityTmr,
+            [=] () { activity(); },
+            1000000);
+
     initTmr             = NULL;
+    createTimer (
+            &initTmr ,
+            [=] () {init();},
+            15000);
+
     reconnectTmr        = NULL;
+    createTimer (
+            &reconnectTmr,
+            [=] () { reconnectMQTT(); },
+            15000);
+
     safeGuardTmr        = NULL;
+    createTimer (
+            &safeGuardTmr, 
+            [=] () { safeGuard(); },
+            32000);
+
 
     mqttTimeTopic.reset(new string(TIMESTAMP_TOPIC));
 
@@ -192,10 +222,7 @@ void MQTT::onError()
 void MQTT::startThrottleTmr()
 {
     ESP_LOGI("MQTT", "start throttle timer");
-    createTimer (
-            &throttleTmr, 
-            [=] () { throttle(); },
-            1000);
+    startTimer(&throttleTmr);
 }
 
 void MQTT::stopThrottleTmr()
@@ -208,10 +235,7 @@ void MQTT::stopThrottleTmr()
 void MQTT::startObtainTimeTmr()
 {
     ESP_LOGI("MQTT", "start Obtain time timer");
-    createTimer (
-            &obtainTimeTmr ,  
-            [=] () { obtainTime(); },
-            10800000); //3hr
+    startTimer(&obtainTimeTmr);
 }
 
 void MQTT::stopObtainTimeTmr()
@@ -235,10 +259,7 @@ void MQTT::safeGuard()
 void MQTT::startSafeGuardTmr()
 {
     ESP_LOGI("MQTT", "start safeguard timer");
-    createTimer (
-            &safeGuardTmr, 
-            [=] () { safeGuard(); },
-            32000);
+    startTimer(&safeGuardTmr);
 }
 
 void MQTT::stopSafeGuardTmr()
@@ -251,6 +272,7 @@ void MQTT::reconnectMQTT()
 {
     ESP_LOGI("MQTT", "reconnecting ...");
 
+    stopReconnectTmr();
     if (currentState != connectingState )
     {
         abort();
@@ -263,10 +285,7 @@ void MQTT::reconnectMQTT()
 void MQTT::startReconnectTmr()
 {
     ESP_LOGI("MQTT", "start reconnect timer");
-    createOneTimeTimer (
-            &reconnectTmr,
-            [=] () { reconnectMQTT(); },
-            15000);
+    startTimer(&reconnectTmr);
 }
 
 void MQTT::stopReconnectTmr()
@@ -288,10 +307,7 @@ void MQTT::activity()
 void MQTT::startActivityTmr()
 {
     ESP_LOGI("MQTT", "start activity timer");
-    createTimer (
-            &activityTmr,
-            [=] () { activity(); },
-            1000000);
+    startTimer(&activityTmr);
 }
 void MQTT::stopActivityTmr()
 {
@@ -321,10 +337,7 @@ void MQTT::init()
 void MQTT::startInitTmr()
 {
     ESP_LOGI("MQTT", "start init timer");
-    createTimer (
-            &initTmr ,
-            [=] () {init();},
-            15000);
+    startTimer(&initTmr);
 
 }
 void MQTT::stopInitTmr()
