@@ -35,8 +35,6 @@ d = dateutil.parser.parse (event["time"])
 controlMessageTopic = "wwc/myesp32/control"
 message = dict()
 message["autoMode"] = True
-message["areation"] = False
-message["circulation"] = True
 message["wwcCounter"] = 15
 message["requestStatus"] = True
 message["normalPeriod"] = 10000
@@ -50,6 +48,6 @@ shadowMessage["areationFail"] = False
 shadowMessage["circulationFail"] = False
 
 
+#myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)
 while(True):
     time.sleep(5)
-#myMQTTClient.publish(controlMessageTopic, json.dumps(message), 1)

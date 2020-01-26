@@ -1,0 +1,5 @@
+build
+gradle
+.gradle
+assets/keystore.bks
+local.properties

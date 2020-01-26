@@ -42,7 +42,7 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     createTimer (
             &reportStatusTmr,
             [=] () { this->controlOnTmr(); },
-            600000); //10 minute
+            60000); //1 minute
 
     aLEDtmr = NULL;
     createTimer (
