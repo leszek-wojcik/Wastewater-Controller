@@ -10,7 +10,7 @@
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name" >
-        <activity android:name="pl.leszek_wojcik.wwc.android.PubSubActivity" >
+        <activity android:name="pl.leszek_wojcik.wwc.android.wwc_android" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

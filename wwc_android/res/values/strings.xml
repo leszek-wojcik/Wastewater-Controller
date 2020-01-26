@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">WWC Application</string>
+    <string name="endpoint">acpzbsqyyfpu4-ats.iot.eu-west-1.amazonaws.com</string>
+    <string name="wwc_device_id">myesp32</string>
+    <string name="wwc_app_id">android_controller</string>
 </resources>
