@@ -1,20 +1,4 @@
-/**
- * Copyright 2010-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
- * <p>
- * http://aws.amazon.com/apache2.0
- * <p>
- * This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
- * OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package pl.leszek_wojcik.wwc.android;
-
 
 import android.app.Activity;
 import android.content.res.AssetManager;
@@ -54,14 +38,17 @@ public class wwc_android extends Activity {
     private static final String KEYSTORE_PASSWORD = "keystore";
     private static final String CERTIFICATE_ID = "keystore";
 
-
-
     TextView tvMessages;
     TextView tvClientId;
     TextView tvStatus;
     TextView tvWWCid;
+    TextView tvDutyCycle;
+    TextView tvNormalPeriod;
+    TextView tvGMTOffset;
     Switch aSwitchAreation;
     Switch aSwitchCirculation;
+    Button aRequestStatusBtn;
+    Button aSubmitBtn;
 
     AWSIotClient mIotAndroidClient;
     AWSIotMqttManager mqttManager;
@@ -74,7 +61,35 @@ public class wwc_android extends Activity {
     KeyStore clientKeyStore = null;
 
 
-    public void areationClick(final View view) {
+     public void submitClick(final View view) {
+            JSONObject msg = new JSONObject();
+            try {
+                if (tvDutyCycle.getText() != "") {
+                    msg.put("normalDutyCycle", tvDutyCycle.getText());
+                }
+                mqttManager.publishString(msg.toString(), controlTopic, AWSIotMqttQos.QOS0);
+                Log.i(LOG_TAG, msg.toString());
+
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "Publish error.", e);
+            }
+     }
+
+    public void requestStatusClick(final View view) {
+        JSONObject msg = new JSONObject();
+        try {
+            msg.put("requestStatus", true);
+            mqttManager.publishString(msg.toString(), controlTopic, AWSIotMqttQos.QOS0);
+            Log.i(LOG_TAG, msg.toString());
+
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Publish error.", e);
+        }
+    }
+
+
+
+     public void areationClick(final View view) {
 
         JSONObject msg = new JSONObject();
         try {
@@ -121,10 +136,20 @@ public class wwc_android extends Activity {
         tvStatus = findViewById(R.id.tvStatus);
         aSwitchAreation = findViewById(R.id.btnAreation);
         aSwitchCirculation = findViewById(R.id.btnCirculation);
+        aRequestStatusBtn = findViewById(R.id.reqStatusBtn);
+
+        tvDutyCycle = findViewById(R.id.normalDutyCycleTxt);
+        tvNormalPeriod = findViewById(R.id.normalPeriodTxt);
+        tvGMTOffset = findViewById(R.id.circulationGMTOffsetTxt);
+        aSubmitBtn = findViewById(R.id.submitBtn);
 
         aSwitchAreation.setEnabled(false);
         aSwitchCirculation.setEnabled(false);
-
+        aRequestStatusBtn.setEnabled(false);
+        tvDutyCycle.setEnabled(false);
+        tvNormalPeriod.setEnabled(false);
+        tvGMTOffset.setEnabled(false);
+        aSubmitBtn.setEnabled(false);
 
         endpoint = getResources().getString(R.string.endpoint);
         clientId = getResources().getString(R.string.wwc_app_id);
@@ -134,7 +159,6 @@ public class wwc_android extends Activity {
 
         tvClientId.setText(clientId);
         tvWWCid.setText(deviceId);
-
 
         mqttManager = new AWSIotMqttManager(clientId, endpoint);
         mqttManager.setKeepAlive(10);
@@ -163,6 +187,11 @@ public class wwc_android extends Activity {
 
                             aSwitchAreation.setEnabled(true);
                             aSwitchCirculation.setEnabled(true);
+                            aRequestStatusBtn.setEnabled(true);
+                            tvDutyCycle.setEnabled(true);
+                            tvNormalPeriod.setEnabled(true);
+                            tvGMTOffset.setEnabled(true);
+                            aSubmitBtn.setEnabled(true);
 
                             try {
                                 mqttManager.subscribeToTopic(statusTopic, AWSIotMqttQos.QOS0,

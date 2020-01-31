@@ -95,22 +95,115 @@
         <Switch
             android:id="@+id/btnAreation"
             android:layout_width="100dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
             android:layout_gravity="left"
             android:layout_weight="1"
             android:onClick="areationClick"
             android:text="Areation" />
 
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
         <Switch
             android:id="@+id/btnCirculation"
             android:layout_width="100dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_gravity="right"
             android:layout_weight="1"
             android:onClick="circulationClick"
             android:text="Circulation" />
     </LinearLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Normal Period [ms]" />
+
+        <EditText
+            android:id="@+id/normalPeriodTxt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ems="10"
+            android:hint="7200000"
+            android:inputType="number"
+            android:singleLine="true"
+            android:textAlignment="textEnd" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Normal Duty Cycle [ms]" />
+
+        <EditText
+            android:id="@+id/normalDutyCycleTxt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ems="10"
+            android:hint="0.75"
+            android:inputType="numberSigned|number|numberDecimal"
+            android:singleLine="true"
+            android:textAlignment="textEnd" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/textView4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Circulation Start GMT Offset [ms]" />
+
+        <EditText
+            android:id="@+id/circulationGMTOffsetTxt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ems="10"
+            android:hint="−3600000"
+            android:inputType="numberSigned|number"
+            android:singleLine="true"
+            android:textAlignment="textEnd" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/submitBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="submitClick"
+        android:text="Submit" />
+
+    <Button
+        android:id="@+id/reqStatusBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="requestStatusClick"
+        android:text="Request Status" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -132,11 +225,12 @@
 
         <TextView
             android:id="@+id/tvMessages"
-            android:layout_height="match_parent"
             android:layout_width="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="19"
             android:gravity="center_vertical|top"
-            android:text="N/A" />
+            android:text="N/A"
+            android:textAppearance="@android:style/TextAppearance.Material.Small" />
     </LinearLayout>
 
 
