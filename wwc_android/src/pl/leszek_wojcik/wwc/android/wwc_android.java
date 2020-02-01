@@ -64,9 +64,22 @@ public class wwc_android extends Activity {
      public void submitClick(final View view) {
             JSONObject msg = new JSONObject();
             try {
-                if (tvDutyCycle.getText() != "") {
-                    msg.put("normalDutyCycle", tvDutyCycle.getText());
-                }
+
+                if (tvDutyCycle.length() != 0)
+                    msg.put("normalDutyCycle", new Float(tvDutyCycle.getText().toString()));
+                else
+                    msg.put("normalDutyCycle", new Float(tvDutyCycle.getHint().toString()));
+
+                if (tvGMTOffset.length() != 0)
+                    msg.put("circulationStartGMTOffset", new Integer(tvGMTOffset.getText().toString()));
+                else
+                    msg.put("circulationStartGMTOffset", new Integer(tvGMTOffset.getHint().toString()));
+
+                if (tvNormalPeriod.length() !=0)
+                    msg.put("normalPeriod", new Integer(tvNormalPeriod.getText().toString()));
+                else
+                    msg.put("normalPeriod", new Integer(tvNormalPeriod.getHint().toString()));
+
                 mqttManager.publishString(msg.toString(), controlTopic, AWSIotMqttQos.QOS0);
                 Log.i(LOG_TAG, msg.toString());
 
