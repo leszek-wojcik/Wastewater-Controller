@@ -12,8 +12,11 @@
 
 #include "cJSON.h"
 #include "topics.h"
+#include <driver/adc.h>
 
 #define BLINK_GPIO (gpio_num_t)2
+#define AREATION_GPIO (gpio_num_t) 17
+#define CIRCULATION_GPIO (gpio_num_t) 16
 
 
 
@@ -25,8 +28,20 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     areation = false;
     circulation = false;
 
+    gpio_pad_select_gpio(AREATION_GPIO);
+    gpio_set_direction(AREATION_GPIO, GPIO_MODE_OUTPUT);
+
+    gpio_pad_select_gpio(CIRCULATION_GPIO);
+    gpio_set_direction(CIRCULATION_GPIO, GPIO_MODE_OUTPUT);
+
     gpio_pad_select_gpio(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_0);
+
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_DB_0);
 
     cycleTmrValue = 24 * 60 * 60 *1000; //24 hours
     areationOnTmrValue =  90 * 60 *1000; //90 minutes
@@ -37,6 +52,12 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     normalPeriod = 120 * 60 * 1000;
     normalDutyCycle = 0.75;
     circulationStartGMTOffset = -60 * 60 * 1000;
+
+    pumpFailureThreshold = 20;
+    areationPumpFailureReadCount = 0;
+    circulationPumpFailureReadCount = 0;
+    areationPumpReadout = 0;
+    circulationPumpReadout = 0;
 
     reportStatusTmr = NULL;
     createTimer (
@@ -125,37 +146,25 @@ void WWC::onMqttCallback( bool connected, bool timeUpdated)
 
 void WWC::onTimeUpdate()
 {
-
-    //time_t t;
     auto tp = system_clock::now();
     milliseconds timeToMidnight;
-    milliseconds timeToCirculation;
 
     timeToMidnight = duration_cast<milliseconds>(hours(24))
-                   - ( duration_cast<milliseconds>(tp.time_since_epoch()) 
-                   % duration_cast<milliseconds>(hours(24))); 
+                   - ( duration_cast<milliseconds>(tp.time_since_epoch() -
+                     milliseconds(circulationStartGMTOffset)) %
+                        duration_cast<milliseconds>(hours(24))); 
                     
 
-    // Check if current time falls into negative offset. if so then addjust
-    if ( timeToMidnight + milliseconds(circulationStartGMTOffset) < milliseconds(0))
-    {
-        timeToCirculation = timeToMidnight 
-                            + duration_cast<milliseconds>(hours(24)) 
-                            + milliseconds(circulationStartGMTOffset) ;
-    }
-    else
-    {
-        timeToCirculation = timeToMidnight + milliseconds(circulationStartGMTOffset);
-    }
+    printf("Time to midnight: %lld minutes\n", duration_cast<minutes>(timeToMidnight).count() );
 
-    //This is wrong
-    if ( isTimerActive(&circulationOnTmr) )
+
+    if ( !isTimerActive(&circulationOnTmr) )
     {
-        cycleTmrValue = timeToCirculation.count();
+        cycleTmrValue = timeToMidnight.count();
         stopCycleTimer();
         startCycleTimer();
         printf ("setting cycle timer %lld minutes from now\n", 
-                duration_cast<minutes>(timeToCirculation).count()); 
+                duration_cast<minutes>(timeToMidnight).count()); 
     }  
     else
     {
@@ -169,6 +178,7 @@ void WWC::onControlTopic(MqttMessage_t s)
 {
         cJSON *item;
         cJSON *json = cJSON_Parse(s->c_str());
+        bool configurationUpdated = false;
 
         item = cJSON_GetObjectItem(json,"areation");
         if ( item != NULL )
@@ -181,6 +191,7 @@ void WWC::onControlTopic(MqttMessage_t s)
             {
                 disableAreation();
             }
+            updateControlPins();
         }
 
         item = cJSON_GetObjectItem(json,"circulation");
@@ -194,6 +205,7 @@ void WWC::onControlTopic(MqttMessage_t s)
             {
                 disableCirculation();
             }
+            updateControlPins();
         }
 
         item = cJSON_GetObjectItem(json,"requestStatus");
@@ -211,6 +223,7 @@ void WWC::onControlTopic(MqttMessage_t s)
             if (cJSON_IsNumber(item))
             {
                 normalPeriod = item->valueint;
+                configurationUpdated = true;
             }
         }
 
@@ -220,6 +233,7 @@ void WWC::onControlTopic(MqttMessage_t s)
             if (cJSON_IsNumber(item))
             {
                 normalDutyCycle = item->valuedouble;
+                configurationUpdated = true;
             }
         }
         
@@ -231,10 +245,23 @@ void WWC::onControlTopic(MqttMessage_t s)
                 circulationStartGMTOffset = item->valuedouble;
             }
         }
+ 
+        item = cJSON_GetObjectItem(json,"pumpFailureThreshold");
+        if ( item != NULL )
+        {
+            if (cJSON_IsNumber(item))
+            {
+                pumpFailureThreshold = item->valuedouble;
+            }
+        }
 
         cJSON_Delete(json);
-        updateConfiguration();
-        restartCycle();
+
+        if (configurationUpdated == true)
+        {
+            updateConfiguration();
+            restartCycle();
+        }
 }
 
 void WWC::updateConfiguration()
@@ -287,6 +314,10 @@ void WWC::controlOnTmr()
 void WWC::updateControlPins()
 {
     printf ("A%dC%d\n", areation, circulation);
+
+    areation ? gpio_set_level(AREATION_GPIO,1) : gpio_set_level(AREATION_GPIO,0);
+    circulation ? gpio_set_level(CIRCULATION_GPIO,1) : gpio_set_level(CIRCULATION_GPIO,0);
+
     sendStatus();
 }
 
@@ -298,6 +329,8 @@ void WWC::sendStatus()
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
     cJSON_AddNumberToObject(json, "freeHeap", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    cJSON_AddNumberToObject(json, "areationPumpReadout", areationPumpReadout);
+    cJSON_AddNumberToObject(json, "circulationPumpReadout", circulationPumpReadout);
    
     char *str = cJSON_Print(json);
     mqttMsg.reset ( new string( str )  );
@@ -318,11 +351,51 @@ void WWC::onAreationOnTmrExpiry()
 {
     printf(__PRETTY_FUNCTION__);
     printf("\n");
+
     stopAreationOnTmr();
     disableAreation();
     disableCirculation();
     updateControlPins();
     startAreationOffTmr();
+}
+
+void WWC::readAreationPumpCurrent()
+{
+    areationPumpReadout = adc1_get_raw(ADC1_CHANNEL_0);
+
+    printf ("!!!Areation ADC read: %d\n", areationPumpReadout);
+
+    if (areationPumpReadout >= 0 && areationPumpReadout <= pumpFailureThreshold )
+    {
+        areationPumpFailureReadCount++;
+    }
+    else
+    {
+        areationPumpFailureReadCount=0;
+    }
+
+    if (areationPumpFailureReadCount == 5)
+        printf ("!!!Areation pump failure\n");
+    
+}
+
+void WWC::readCirculationPumpCurrent()
+{
+    circulationPumpReadout = adc1_get_raw(ADC1_CHANNEL_3);
+
+    printf ("!!!Circulation ADC read: %d\n", circulationPumpReadout);
+
+    if (circulationPumpReadout >= 0 && circulationPumpReadout <= pumpFailureThreshold)
+    {
+        circulationPumpFailureReadCount++;
+    }
+    else
+    {
+        circulationPumpFailureReadCount=0;
+    }
+
+    if (circulationPumpFailureReadCount == 5)
+        printf ("!!!circulation pump failure\n");
 }
 
 void WWC::stopAreationOnTmr()

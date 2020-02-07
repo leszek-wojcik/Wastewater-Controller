@@ -34,7 +34,7 @@ class MQTT: public ActiveObject
 
         MqttTopic_t mqttTimeTopic;
 
-        char cPayload[100];
+        char cPayload[200];
 
         IoT_Publish_Message_Params paramsQOS0;
         IoT_Client_Init_Params mqttInitParams;

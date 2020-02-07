@@ -33,6 +33,11 @@ class WWC : public ActiveObject
         int     normalPeriod;
         double  normalDutyCycle;
         int     circulationStartGMTOffset;
+        int     pumpFailureThreshold;
+        int     areationPumpFailureReadCount;
+        int     circulationPumpFailureReadCount;
+        int     areationPumpReadout;
+        int     circulationPumpReadout;
 
         void updateConfiguration();
         void restartCycle();
@@ -72,6 +77,9 @@ class WWC : public ActiveObject
         void startCirculationOnTmr();
         void onCirculationOnTmrExpiry();
         void stopCirculationOnTmr();
+
+        void readAreationPumpCurrent();
+        void readCirculationPumpCurrent();
 
 };
 
