@@ -1,0 +1,1 @@
+sudo docker run --user `id -u` -h esp-idf -ti -v `pwd`:/tmparea esp-idf cp -r /github/esp-idf /tmparea/esp-idf-library

@@ -19,7 +19,6 @@
 #define CIRCULATION_GPIO (gpio_num_t) 16
 
 
-
 WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
 {
     ESP_LOGI("WWC", "init");
@@ -58,6 +57,8 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",2048,6)
     circulationPumpFailureReadCount = 0;
     areationPumpReadout = 0;
     circulationPumpReadout = 0;
+
+    sameAsPrevious = 0;
 
     reportStatusTmr = NULL;
     createTimer (
@@ -323,15 +324,38 @@ void WWC::updateControlPins()
 
 void WWC::sendStatus()
 {
+    
     cJSON *json = NULL;
+    int aMemmoryAvaliable = heap_caps_get_free_size(MALLOC_CAP_8BIT | MALLOC_CAP_32BIT);
+    int aMemoryLoss = memmoryAvaliable - aMemmoryAvaliable;
+
     json = cJSON_CreateObject();
     cJSON_AddItemToObject(json, "name", cJSON_CreateString(CONFIG_AWS_CLIENT_ID));
     cJSON_AddBoolToObject(json, "areation", areation);
     cJSON_AddBoolToObject(json, "circulation", circulation);
-    cJSON_AddNumberToObject(json, "freeHeap", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    cJSON_AddNumberToObject(json, "freeHeap", aMemmoryAvaliable);
     cJSON_AddNumberToObject(json, "areationPumpReadout", areationPumpReadout);
     cJSON_AddNumberToObject(json, "circulationPumpReadout", circulationPumpReadout);
    
+    printf("free heap %d\n", aMemmoryAvaliable);
+    
+    if (memmoryAvaliable == aMemmoryAvaliable)
+    {
+        sameAsPrevious = 1;
+    }
+
+    if (  memmoryAvaliable >  aMemmoryAvaliable )
+    {
+        printf("memory loss by %d\n", aMemoryLoss  ); 
+    }
+
+    if ( aMemmoryAvaliable < 180000 && sameAsPrevious == 1)
+    {
+        printf("we got issue to work\n");
+    }
+
+    memmoryAvaliable = aMemmoryAvaliable;  
+
     char *str = cJSON_Print(json);
     mqttMsg.reset ( new string( str )  );
     free (str);

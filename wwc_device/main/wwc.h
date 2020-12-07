@@ -42,6 +42,9 @@ class WWC : public ActiveObject
         void updateConfiguration();
         void restartCycle();
         void onTimeUpdate();
+
+        int memmoryAvaliable;
+        int sameAsPrevious; 
         
     public:
         WWC(MQTT *);
