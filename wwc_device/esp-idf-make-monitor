@@ -1,1 +1,0 @@
-sudo docker run -h esp-idf -ti -v `pwd`/..:/github/Wastewater-Controller --device=/dev/ttyUSB0 esp-idf /bin/bash -c "cd Wastewater-Controller/wwc_device; make defconfig; make monitor"

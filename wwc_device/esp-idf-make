@@ -1,1 +1,14 @@
-sudo docker run -h esp-idf -ti -v `pwd`:/project -w /project --device=/dev/ttyUSB0 esp-idf /bin/bash -c "make clean; make defconfig; make -j3"
+#!/bin/bash
+
+# check if esp-idf running
+if [[ $(sudo docker ps -f name=esp-idf -q) ]]; then 
+	echo "esp-idf is running"
+	sudo docker exec -ti esp-idf  /bin/bash -c "make $@"
+else
+	echo "starting esp-idf"
+	sudo docker run -ti -d --name esp-idf -h esp-idf -v `pwd`:`pwd` -w `pwd` --device=/dev/ttyUSB0 esp-idf /bin/bash
+	sudo docker exec -ti esp-idf  /bin/bash -c "make $@"
+fi
+
+
+
