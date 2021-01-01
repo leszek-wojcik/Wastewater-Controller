@@ -10,16 +10,7 @@ class WWC : public ActiveObject
     private:
         AOTimer_t reportStatusTmr;
         AOTimer_t aLEDtmr;
-        AOTimer_t areationOnTmr;
-        AOTimer_t areationOffTmr;
-        AOTimer_t cycleTmr;
-        AOTimer_t circulationOnTmr;
-
-        AODurationMS_t cycleTmrValue;
-        AODurationMS_t areationOnTmrValue;
-        AODurationMS_t areationOffTmrValue;
-        AODurationMS_t circulationOnTmrValue;
-
+        AOTimer_t aControlTmr;
 
         bool areation;
         bool circulation;
@@ -30,17 +21,19 @@ class WWC : public ActiveObject
         MqttMessage_t mqttMsg;
         MQTT* mqttService;
 
-        int     normalPeriod;
-        double  normalDutyCycle;
-        int     circulationStartGMTOffset;
-        int     pumpFailureThreshold;
+        // This are ment to be configuration items. 
+        // Default values are set in constructor in case of no connectivity
+        int     normalPeriod;                   // Defines basic operation window 
+        double  normalDutyCycle;                // Defines how long areation pump operates during normal period
+        int     circulationStartGMTOffset;      // GMT Offset 
+        int     circulationPeriod;              // Defines how long circulation pump operates during day
+        int     pumpFailureThreshold;           // Helps to interpret if we have pump failure
+        
         int     areationPumpFailureReadCount;
         int     circulationPumpFailureReadCount;
         int     areationPumpReadout;
         int     circulationPumpReadout;
 
-        void updateConfiguration();
-        void restartCycle();
         void onTimeUpdate();
 
         int memmoryAvaliable;
@@ -64,25 +57,10 @@ class WWC : public ActiveObject
 
         void controlOnTmr();
         void ledOnTmr();
+        void onReportStatus();
 
-        void startAreationOnTmr();
-        void onAreationOnTmrExpiry();
-        void stopAreationOnTmr();
-
-        void startAreationOffTmr();
-        void onAreationOffTmrExpiry();
-        void stopAreationOffTmr();
-
-        void startCycleTimer();
-        void onCycleTmrExpiry();
-        void stopCycleTimer();
-
-        void startCirculationOnTmr();
-        void onCirculationOnTmrExpiry();
-        void stopCirculationOnTmr();
 
         void readAreationPumpCurrent();
         void readCirculationPumpCurrent();
-
 };
 

@@ -12,6 +12,7 @@
 #include "wwc.h"
 #include "wifi.h"
 #include "mqtt.h"
+#include "esp_heap_trace.h"
 
 WWC *aWWC;
 WiFi *aWiFi;
@@ -24,6 +25,7 @@ void createActiveObjects()
     aWWC = new WWC(aMQTT);
 }
 
+heap_trace_record_t tracebuffer[500];
 
 extern "C" 
 {
@@ -36,7 +38,8 @@ extern "C"
             err = nvs_flash_init();
         }
         ESP_ERROR_CHECK( err );
-
+        ESP_ERROR_CHECK(heap_trace_init_standalone(tracebuffer, 200));
+        ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
         createActiveObjects();
 
     }
