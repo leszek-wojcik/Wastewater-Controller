@@ -100,6 +100,7 @@ MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
 
 
     mqttTimeTopic.reset(new string(TIMESTAMP_TOPIC));
+    mqttShadowGetTopic.reset(new string(SHADOW_TOPIC_GET));
 
     activityInd = false;
 
@@ -168,7 +169,7 @@ void MQTT::throttle(uint32_t tmo)
 
     if (rc !=SUCCESS)
     {
-        ESP_LOGE(__PRETTY_FUNCTION__, "error form mqqt yield");
+        ESP_LOGE(__PRETTY_FUNCTION__, "error form mqqt yield %d", rc);
         onError();
     }
 }
@@ -524,4 +525,12 @@ void MQTT::processTimeMessage( MqttMessage_t msg)
         }
     }
     cJSON_Delete(json);
+}
+void MQTT::requestShadow()
+{
+    // This is to cause AWS IoT send back shadow.
+    ESP_LOGI("MQTT", "Sending to %s ...", mqttShadowGetTopic->c_str());
+    MqttMessage_t emptyMessage;
+    emptyMessage.reset(new string("{}"));
+    subjectSend(mqttShadowGetTopic, emptyMessage);
 }

@@ -60,7 +60,7 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",4096,6)
     createTimer (
             &reportStatusTmr,
             [=] () { this->onReportStatus(); },
-            600000); //10 minute
+            60000); //1 minute
 
     aLEDtmr = NULL;
     createTimer (
@@ -80,8 +80,11 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",4096,6)
     startTimer(&aControlTmr);
     
     mqttMsg.reset(new string(""));
+ 
     mqttControlTopic.reset(new string(CONTROL_TOPIC));
     mqttStatusTopic.reset(new string(STATUS_TOPIC));
+    mqttShadowGetTopic.reset(new string(SHADOW_TOPIC_GET_ACCEPTED));
+    mqttShadowUpdateDeltaTopic.reset(new string(SHADOW_TOPIC_UPDATE_DELTA));
 
     MqttTopicCallback_t controlTopicCallback = [=] ( MqttMessage_t s )
     {
@@ -89,10 +92,13 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",4096,6)
     };
 
     mqttService->subscribeTopic(mqttControlTopic, controlTopicCallback);
-    
+    mqttService->subscribeTopic(mqttShadowGetTopic, controlTopicCallback);
+    mqttService->subscribeTopic(mqttShadowUpdateDeltaTopic, controlTopicCallback);
+
     mqttService->registerStateCallback( 
         [=](bool connected,bool timeUpdated) { onMqttCallback(connected, timeUpdated);}       
         );
+    
 }
 
 void WWC::onMqttCallback( bool connected, bool timeUpdated)
@@ -208,8 +214,7 @@ void WWC::updateControlPins()
 }
 
 void WWC::sendStatus()
-{
-    
+{   
     cJSON *json = NULL;
 
 
@@ -269,9 +274,69 @@ void WWC::readCirculationPumpCurrent()
 
 void WWC::onControlTopic(MqttMessage_t s)
 {
-        cJSON *item;
+        cJSON *docitem = NULL;
+        cJSON *item = NULL;
+        cJSON *subitem = NULL;
         cJSON *json = cJSON_Parse(s->c_str());
-
+        if (json != NULL)
+        {
+            docitem = cJSON_GetObjectItem(json, "state");
+            if (docitem != NULL)
+            {
+                item = cJSON_GetObjectItem(docitem, "desired");
+                if (item != NULL)
+                {   
+                    subitem = cJSON_GetObjectItem(item,"normalPeriod");
+                    if ( subitem != NULL )
+                    {
+                        if (cJSON_IsNumber(subitem))
+                        {
+                            printf ("normalPeriod is number %d\n",subitem->valueint);
+                            if (subitem->valueint > 0) 
+                            {
+                                normalPeriod = subitem->valueint;
+                            }
+                        }
+                    }
+                    subitem = cJSON_GetObjectItem(item,"normalDutyCycle");
+                    if ( subitem != NULL )
+                    {
+                        printf("valid normalDutyCycle document\n");
+                        if (cJSON_IsNumber(subitem))
+                        {
+                            if (subitem->valuedouble >= 0) 
+                            {
+                                normalDutyCycle = subitem->valueint;
+                            }
+                        }    
+                    }
+                    subitem = cJSON_GetObjectItem(item,"circulationPeriod");
+                    if ( subitem != NULL )
+                    {
+                        if (cJSON_IsNumber(subitem))
+                        {
+                            printf ("circulationPeriod is number %d\n",subitem->valueint);
+                            if (subitem->valueint >= 0) 
+                            {
+                                circulationPeriod = subitem->valueint;
+                            }
+                        }    
+                    }
+                    subitem = cJSON_GetObjectItem(item,"circulationStartGMTOffset");
+                    if ( subitem != NULL )
+                    {
+                        if (cJSON_IsNumber(subitem))
+                        {
+                            printf ("circulationPeriod is number %lf\n",subitem->valuedouble);
+                            circulationStartGMTOffset = subitem->valuedouble;
+                        }
+                    }
+                }
+            }
+        }
+        
+        
+/*
         item = cJSON_GetObjectItem(json,"areation");
         if ( item != NULL )
         {
@@ -308,33 +373,8 @@ void WWC::onControlTopic(MqttMessage_t s)
                 sendStatus();
             }
         }
-
-        item = cJSON_GetObjectItem(json,"normalPeriod");
-        if ( item != NULL )
-        {
-            if (cJSON_IsNumber(item))
-            {
-                normalPeriod = item->valueint;
-            }
-        }
-
-        item = cJSON_GetObjectItem(json,"normalDutyCycle");
-        if ( item != NULL )
-        {
-            if (cJSON_IsNumber(item))
-            {
-                normalDutyCycle = item->valuedouble;
-            }
-        }
         
-        item = cJSON_GetObjectItem(json,"circulationStartGMTOffset");
-        if ( item != NULL )
-        {
-            if (cJSON_IsNumber(item))
-            {
-                circulationStartGMTOffset = item->valuedouble;
-            }
-        }
+       
 
         item = cJSON_GetObjectItem(json,"circulationPeriod");
         if ( item != NULL )
@@ -345,14 +385,7 @@ void WWC::onControlTopic(MqttMessage_t s)
             }
         }
 
-        item = cJSON_GetObjectItem(json,"pumpFailureThreshold");
-        if ( item != NULL )
-        {
-            if (cJSON_IsNumber(item))
-            {
-                pumpFailureThreshold = item->valuedouble;
-            }
-        }
-
+*/
         cJSON_Delete(json);
+        sendStatus();
 }

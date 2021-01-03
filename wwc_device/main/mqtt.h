@@ -33,8 +33,9 @@ class MQTT: public ActiveObject
         static MQTT_Connected_State* connectedState;
 
         MqttTopic_t mqttTimeTopic;
+        MqttTopic_t mqttShadowGetTopic;
 
-        char cPayload[200];
+        char cPayload[800];
 
         IoT_Publish_Message_Params paramsQOS0;
         IoT_Client_Init_Params mqttInitParams;
@@ -66,6 +67,7 @@ class MQTT: public ActiveObject
 
         void subscribeTopics();
         void unsubscribeTopics();
+        void requestShadow();
         void executeSubscribeTopic(MqttTopic_t);
         void executeUnsubscribeTopic(MqttTopic_t);
         void executeSubjectSend(MqttTopic_t, MqttMessage_t );

@@ -143,6 +143,7 @@ void MQTT_Connected_State::onEntry()
     context->startThrottleTmr();
     context->startActivityTmr();
     context->startObtainTimeTmr();
+    context->requestShadow();
     context->throttle(1000);
 }
 

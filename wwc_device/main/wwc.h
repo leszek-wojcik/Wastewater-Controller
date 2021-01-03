@@ -18,6 +18,9 @@ class WWC : public ActiveObject
 
         MqttTopic_t mqttControlTopic;
         MqttTopic_t mqttStatusTopic;
+        MqttTopic_t mqttShadowGetTopic;
+        MqttTopic_t mqttShadowUpdateDeltaTopic;
+        
         MqttMessage_t mqttMsg;
         MQTT* mqttService;
 
