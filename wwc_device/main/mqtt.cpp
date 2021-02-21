@@ -37,6 +37,10 @@ uint32_t port = CONFIG_MQTT_PORT;
 void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) 
 {
     ESP_LOGW(TAG, "MQTT Disconnect from AWS IOT framework");
+    //consider reset here. 
+    // aws_iot_mqtt_free
+    //or reset esp_restart(); like that
+    //esp_restart();
     MQTT::getInstance()->onError();
 }
 
@@ -103,6 +107,7 @@ MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
     mqttShadowGetTopic.reset(new string(SHADOW_TOPIC_GET));
 
     activityInd = false;
+    mqttInitialized = false;
 
     createStateMachine();
     stateCallback       = NULL;
@@ -320,15 +325,6 @@ void MQTT::stopActivityTmr()
 void MQTT::init()
 {
     ESP_LOGI(__PRETTY_FUNCTION__, "init");
-    IoT_Error_t rc = FAILURE;
-    initParams();
-    rc = aws_iot_mqtt_init(&client, &mqttInitParams);
-
-    if(SUCCESS != rc) 
-    {
-        ESP_LOGE(__PRETTY_FUNCTION__, "aws_iot_mqtt_init returned error : %d ", rc);
-        abort();
-    }
     disconnectWiFi();
     vTaskDelay(1000/portTICK_PERIOD_MS);
 
@@ -392,7 +388,7 @@ void MQTT::executeDisconnect()
     rc = aws_iot_mqtt_disconnect(&client);
     if(SUCCESS != rc) 
     {
-        ESP_LOGW(__PRETTY_FUNCTION__, "Error(%d) connecting to %s:%d", 
+        ESP_LOGW(__PRETTY_FUNCTION__, "Error(%d) disconnecting to %s:%d", 
                 rc, 
                 mqttInitParams.pHostURL, 
                 mqttInitParams.port);

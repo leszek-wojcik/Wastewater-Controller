@@ -67,6 +67,34 @@ void MQTT_Init_State::unsubscribeTopic(MqttTopic_t t)
 ////////////////////////
 void MQTT_Connecting_State::onEntry()
 {
+    
+    IoT_Error_t rc = FAILURE;
+    
+    // Firstly cleanup for any previous session
+    if ( context->mqttInitialized)
+    {
+        rc = aws_iot_mqtt_free(&context->client);
+        if(SUCCESS != rc) 
+        {
+            ESP_LOGE(__PRETTY_FUNCTION__, "aws_iot_mqtt_free returned error : %d ", rc);
+            abort();
+        }
+    }
+    
+    // Initialize of reinitialize parameters for mqtt
+    context->initParams();
+
+    // Initialize MQTT
+    rc = FAILURE;
+    rc = aws_iot_mqtt_init(&context->client, &context->mqttInitParams);
+    if(SUCCESS != rc) 
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "aws_iot_mqtt_init returned error : %d ", rc);
+        abort();
+    }
+    
+    context->mqttInitialized = true;
+
     context->startSafeGuardTmr();
     if (context->connectMQTT())
     {

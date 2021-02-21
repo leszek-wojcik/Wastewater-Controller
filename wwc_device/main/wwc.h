@@ -11,6 +11,7 @@ class WWC : public ActiveObject
         AOTimer_t reportStatusTmr;
         AOTimer_t aLEDtmr;
         AOTimer_t aControlTmr;
+        AOTimer_t debugTmr;
 
         bool areation;
         bool circulation;
@@ -61,7 +62,7 @@ class WWC : public ActiveObject
         void controlOnTmr();
         void ledOnTmr();
         void onReportStatus();
-
+        void onDebugTmr();
 
         void readAreationPumpCurrent();
         void readCirculationPumpCurrent();

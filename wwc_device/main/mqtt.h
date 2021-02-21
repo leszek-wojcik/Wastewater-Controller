@@ -52,6 +52,7 @@ class MQTT: public ActiveObject
         MqttStateCallback_t stateCallback;
 
         bool activityInd;
+        bool mqttInitialized;
         WiFi *wifi;
 
         void initParams();
