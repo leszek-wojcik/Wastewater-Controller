@@ -49,8 +49,6 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",4096,6)
     circulationPeriod = 10 * 60 * 1000;
 
     pumpFailureThreshold = 20;
-    areationPumpFailureReadCount = 0;
-    circulationPumpFailureReadCount = 0;
     areationPumpReadout = 0;
     circulationPumpReadout = 0;
 
@@ -90,17 +88,29 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",4096,6)
  
     mqttControlTopic.reset(new string(CONTROL_TOPIC));
     mqttStatusTopic.reset(new string(STATUS_TOPIC));
+    mqttShadowUpdateTopic.reset(new string(SHADOW_UPDATE_TOPIC));
     mqttShadowGetTopic.reset(new string(SHADOW_TOPIC_GET_ACCEPTED));
     mqttShadowUpdateDeltaTopic.reset(new string(SHADOW_TOPIC_UPDATE_DELTA));
 
-    MqttTopicCallback_t controlTopicCallback = [=] ( MqttMessage_t s )
+    MqttTopicCallback_t shadowUpdateDeltaCallback = [=] ( MqttMessage_t s )
     {
-        executeMethod ([=](){this->onControlTopic(s);});
+        executeMethod ([=](){ ESP_LOGI("WWC", "shadow update delta message"); this->onShadowDelta(s);});
     };
 
+    MqttTopicCallback_t shadowGetUpdateCallback = [=] ( MqttMessage_t s )
+    {
+        executeMethod ([=](){ESP_LOGI("WWC","shadow update get message"); this->onShadowUpdate(s);});
+    };
+
+    MqttTopicCallback_t controlTopicCallback = [=] ( MqttMessage_t s )
+    {
+        executeMethod ([=](){ESP_LOGI("WWC","control topic message"); this->onControl(s);});
+    };
+
+
     mqttService->subscribeTopic(mqttControlTopic, controlTopicCallback);
-    mqttService->subscribeTopic(mqttShadowGetTopic, controlTopicCallback);
-    mqttService->subscribeTopic(mqttShadowUpdateDeltaTopic, controlTopicCallback);
+    mqttService->subscribeTopic(mqttShadowGetTopic, shadowGetUpdateCallback);
+    mqttService->subscribeTopic(mqttShadowUpdateDeltaTopic, shadowUpdateDeltaCallback);
 
     // Register callback in MQTTService so we update time in WWC. 
     mqttService->registerStateCallback( 
@@ -120,11 +130,6 @@ void WWC::onMqttCallback( bool connected, bool timeUpdated)
 void WWC::onTimeUpdate()
 {
     controlOnTmr();
-}
-
-void WWC::onStatusTopic(MqttMessage_t s)
-{
-    printf ("onStatusTopic inside WWC %s\n",s->c_str());
 }
 
 void WWC::ledOnTmr()
@@ -150,10 +155,8 @@ void WWC::ledOnTmr()
         {
             gpio_set_level(BLINK_GPIO, 1);
             ledOn = true;
-        }
-       
+        }  
     }
-
 }
 
 void WWC::onReportStatus()
@@ -177,15 +180,13 @@ void WWC::controlOnTmr()
     {
         sameAsPrevious = 1;
     }
-
     
-    if ( aMemmoryAvaliable < 135000 && sameAsPrevious == 0)
+    if ( aMemmoryAvaliable < 80000 && sameAsPrevious == 0)
     {
         heap_trace_stop();
-        printf("we got issue to work\n");
+        ESP_LOGE("WWC","we got memory issue to work");
         heap_trace_dump();
-        //this is temporary
-        esp_deep_sleep_start();
+        esp_restart();
     }
     
     heap_trace_stop();
@@ -216,7 +217,21 @@ void WWC::controlOnTmr()
     // We assess whether we shoudl be running Circulation. Circulation runns only at first cycle for limited amount of time    
     circulation = ( (currentDayCycle == 0) && ( timeFromCycleStart.count() < circulationPeriod) );
 
-    updateControlPins();    
+    readAreationPumpCurrent();
+    readCirculationPumpCurrent();
+    updateControlPins();
+}
+
+void WWC::readAreationPumpCurrent()
+{
+    areationPumpReadout = adc1_get_raw(ADC1_CHANNEL_0);
+    printf ("Areation current: %d, ", areationPumpReadout);
+}
+
+void WWC::readCirculationPumpCurrent()
+{
+    circulationPumpReadout = adc1_get_raw(ADC1_CHANNEL_3);
+    printf ("Circulation current: %d, ", circulationPumpReadout);
 }
 
 void WWC::updateControlPins()
@@ -227,110 +242,118 @@ void WWC::updateControlPins()
     circulation ? gpio_set_level(CIRCULATION_GPIO,1) : gpio_set_level(CIRCULATION_GPIO,0);
 }
 
-
-void WWC::readAreationPumpCurrent()
+void WWC::processReceivedParameters(cJSON *item)
 {
-    areationPumpReadout = adc1_get_raw(ADC1_CHANNEL_0);
-
-    printf ("!!!Areation ADC read: %d\n", areationPumpReadout);
-
-    if (areationPumpReadout >= 0 && areationPumpReadout <= pumpFailureThreshold )
+    cJSON *subitem = NULL;
+    //This method parsess parameters only
+    if (item != NULL)
     {
-        areationPumpFailureReadCount++;
-    }
-    else
-    {
-        areationPumpFailureReadCount=0;
-    }
-
-    if (areationPumpFailureReadCount == 5)
-        printf ("!!!Areation pump failure\n");
-    
-}
-
-void WWC::readCirculationPumpCurrent()
-{
-    circulationPumpReadout = adc1_get_raw(ADC1_CHANNEL_3);
-
-    printf ("!!!Circulation ADC read: %d\n", circulationPumpReadout);
-
-    if (circulationPumpReadout >= 0 && circulationPumpReadout <= pumpFailureThreshold)
-    {
-        circulationPumpFailureReadCount++;
-    }
-    else
-    {
-        circulationPumpFailureReadCount=0;
-    }
-
-    if (circulationPumpFailureReadCount == 5)
-        printf ("!!!circulation pump failure\n");
-}
-
-void WWC::onControlTopic(MqttMessage_t s)
-{
-        cJSON *docitem = NULL;
-        cJSON *item = NULL;
-        cJSON *subitem = NULL;
-        cJSON *json = cJSON_Parse(s->c_str());
-        if (json != NULL)
+        subitem = cJSON_GetObjectItem(item, "normalPeriod");
+        if (subitem != NULL)
         {
-            docitem = cJSON_GetObjectItem(json, "state");
-            if (docitem != NULL)
+            if (cJSON_IsNumber(subitem))
             {
-                item = cJSON_GetObjectItem(docitem, "desired");
-                if (item != NULL)
-                {   
-                    subitem = cJSON_GetObjectItem(item,"normalPeriod");
-                    if ( subitem != NULL )
-                    {
-                        if (cJSON_IsNumber(subitem))
-                        {
-                            if (subitem->valueint > 0) 
-                            {
-                                normalPeriod = subitem->valueint;
-                            }
-                        }
-                    }
-                    subitem = cJSON_GetObjectItem(item,"normalDutyCycle");
-                    if ( subitem != NULL )
-                    {
-                        if (cJSON_IsNumber(subitem))
-                        {
-                            if (subitem->valuedouble >= 0) 
-                            {
-                                normalDutyCycle = subitem->valueint;
-                            }
-                        }    
-                    }
-                    subitem = cJSON_GetObjectItem(item,"circulationPeriod");
-                    if ( subitem != NULL )
-                    {
-                        if (cJSON_IsNumber(subitem))
-                        {
-                            if (subitem->valueint >= 0) 
-                            {
-                                circulationPeriod = subitem->valueint;
-                            }
-                        }    
-                    }
-                    subitem = cJSON_GetObjectItem(item,"circulationStartGMTOffset");
-                    if ( subitem != NULL )
-                    {
-                        if (cJSON_IsNumber(subitem))
-                        {
-                            circulationStartGMTOffset = subitem->valuedouble;
-                        }
-                    }
+                if (subitem->valueint > 0)
+                {
+                    normalPeriod = subitem->valueint;
                 }
             }
         }
-        
-        cJSON_Delete(json);
-        sendStatus();
+        subitem = cJSON_GetObjectItem(item, "normalDutyCycle");
+        if (subitem != NULL)
+        {
+            if (cJSON_IsNumber(subitem))
+            {
+                if (subitem->valuedouble >= 0)
+                {
+                    normalDutyCycle = subitem->valuedouble;
+                }
+            }
+        }
+        subitem = cJSON_GetObjectItem(item, "circulationPeriod");
+        if (subitem != NULL)
+        {
+            if (cJSON_IsNumber(subitem))
+            {
+                if (subitem->valueint >= 0)
+                {
+                    circulationPeriod = subitem->valueint;
+                }
+            }
+        }
+        subitem = cJSON_GetObjectItem(item, "circulationStartGMTOffset");
+        if (subitem != NULL)
+        {
+            if (cJSON_IsNumber(subitem))
+            {
+                circulationStartGMTOffset = subitem->valueint;
+            }
+        }
+        subitem = cJSON_GetObjectItem(item, "pumpFailureThreshold");
+        if (subitem != NULL)
+        {
+            if (cJSON_IsNumber(subitem))
+            {
+                if (subitem->valueint >= 0)
+                {
+                    pumpFailureThreshold = subitem->valueint;
+                }
+            }
+        }
+    }
 }
 
-void WWC::sendStatus()
+void WWC::onShadowUpdate(MqttMessage_t s)
+{
+    cJSON *docitem = NULL;
+    cJSON *item = NULL;
+    cJSON *json = cJSON_Parse(s->c_str());
+    if (json != NULL)
+    {
+        docitem = cJSON_GetObjectItem(json, "state");
+        if (docitem != NULL)
+        {
+            item = cJSON_GetObjectItem(docitem, "desired");
+            processReceivedParameters(item);
+        }
+    }
+    cJSON_Delete(json);
+    sendShadow();
+}
+
+void WWC::onShadowDelta(MqttMessage_t s)
+{
+    cJSON *docitem = NULL;
+    cJSON *json = cJSON_Parse(s->c_str());
+    if (json != NULL)
+    {
+        docitem = cJSON_GetObjectItem(json, "state");
+        if (docitem != NULL)
+        {
+            processReceivedParameters(docitem);
+        }
+    }
+    cJSON_Delete(json);
+    sendShadow();
+}
+
+void WWC::onControl(MqttMessage_t s)
+{
+    cJSON *docitem = NULL;
+    cJSON *json = cJSON_Parse(s->c_str());
+    if (json != NULL)
+    {
+        docitem = cJSON_GetObjectItem(json, "state");
+        if (docitem != NULL)
+        {
+            processReceivedParameters(docitem);
+        }
+    }
+    cJSON_Delete(json);
+    sendStatus();
+}
+
+void WWC::sendShadow()
 {   
     cJSON *jsondoc = cJSON_CreateObject();
     cJSON *jsonState = cJSON_CreateObject();
@@ -341,8 +364,25 @@ void WWC::sendStatus()
     cJSON_AddNumberToObject(jsonReported, "circulationStartGMTOffset", circulationStartGMTOffset);
     cJSON_AddNumberToObject(jsonReported, "circulationPeriod", circulationPeriod );
     cJSON_AddNumberToObject(jsonReported, "normalDutyCycle", normalDutyCycle );
-    
-    // State
+    cJSON_AddNumberToObject(jsonReported, "pumpFailureThreshold", pumpFailureThreshold);
+        
+    cJSON_AddItemToObject(jsonState, "reported",jsonReported );
+    cJSON_AddItemToObject(jsondoc,"state",jsonState);
+
+    char *str = cJSON_PrintUnformatted(jsondoc);
+    mqttMsg.reset ( new string( str )  );
+    free (str);
+
+    mqttService->subjectSend(mqttShadowUpdateTopic, mqttMsg);
+    cJSON_Delete(jsondoc);
+}
+
+void WWC::sendStatus()
+{   
+    cJSON *jsondoc = cJSON_CreateObject();
+    cJSON *jsonState = cJSON_CreateObject();
+    cJSON *jsonReported = cJSON_CreateObject();
+
     cJSON_AddNumberToObject(jsonReported, "areationPumpReadout", areationPumpReadout);
     cJSON_AddNumberToObject(jsonReported, "circulationPumpReadout", circulationPumpReadout);   
     cJSON_AddBoolToObject(jsonReported, "areation", areation);
@@ -351,13 +391,12 @@ void WWC::sendStatus()
     cJSON_AddItemToObject(jsonState, "reported",jsonReported );
     cJSON_AddItemToObject(jsondoc,"state",jsonState);
 
-    char *str = cJSON_Print(jsondoc);
+    char *str = cJSON_PrintUnformatted(jsondoc);
     mqttMsg.reset ( new string( str )  );
     free (str);
 
     mqttService->subjectSend(mqttStatusTopic, mqttMsg);
     cJSON_Delete(jsondoc);
-    //TODO: Do I need to delete jsonState and JsonReported ?
 }
 
 void WWC::onDebugTmr()

@@ -188,12 +188,19 @@ void MQTT::executeSubjectSend(MqttTopic_t topic, MqttMessage_t msg )
 {
     IoT_Error_t rc = SUCCESS;
     activityInd = true;
+    
+    if (sizeof(cPayload) < strlen(msg->c_str()))
+    {
+        ESP_LOGE(__PRETTY_FUNCTION__, "not enough space. Message size: %d", strlen(msg->c_str()) );
+        onError();
+    }
+
     sprintf(cPayload,"%s",msg->c_str());
     paramsQOS0.payloadLen = strlen(cPayload);
     rc = aws_iot_mqtt_publish(&client, topic->c_str(), topic->length(), &paramsQOS0);
     if (rc !=SUCCESS)
     {
-        ESP_LOGE(__PRETTY_FUNCTION__, "error form mqqt yield");
+        ESP_LOGE(__PRETTY_FUNCTION__, "error form mqqt yield, rc: %d", rc);
         onError();
     }
 }

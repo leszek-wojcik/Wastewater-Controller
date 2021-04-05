@@ -19,6 +19,7 @@ class WWC : public ActiveObject
 
         MqttTopic_t mqttControlTopic;
         MqttTopic_t mqttStatusTopic;
+        MqttTopic_t mqttShadowUpdateTopic;
         MqttTopic_t mqttShadowGetTopic;
         MqttTopic_t mqttShadowUpdateDeltaTopic;
         
@@ -33,8 +34,6 @@ class WWC : public ActiveObject
         int     circulationPeriod;              // Defines how long circulation pump operates during day
         int     pumpFailureThreshold;           // Helps to interpret if we have pump failure
         
-        int     areationPumpFailureReadCount;
-        int     circulationPumpFailureReadCount;
         int     areationPumpReadout;
         int     circulationPumpReadout;
 
@@ -46,8 +45,10 @@ class WWC : public ActiveObject
     public:
         WWC(MQTT *);
 
-        void onControlTopic(MqttMessage_t);
-        void onStatusTopic(MqttMessage_t);
+        void onShadowUpdate(MqttMessage_t);
+        void onShadowDelta(MqttMessage_t);
+        void onControl(MqttMessage_t);
+        void processReceivedParameters(cJSON *item);
         void onMqttCallback( bool connected, bool timeUpdated);
 
         inline void enableCirculation() { circulation = true; }
@@ -57,6 +58,7 @@ class WWC : public ActiveObject
         inline void disableAreation() { areation = false; }
 
         void updateControlPins();
+        void sendShadow();
         void sendStatus();
 
         void controlOnTmr();

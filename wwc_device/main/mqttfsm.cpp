@@ -220,7 +220,7 @@ void MQTT_Connected_State::subscribeTopic(MqttTopic_t s, MqttTopicCallback_t f)
 
 void MQTT_Connected_State::subjectSend(MqttTopic_t t, MqttMessage_t m )
 {
-    ESP_LOGI(__PRETTY_FUNCTION__, ".");
+    ESP_LOGI("MQTT","sending:%s:%s", t->c_str(), m->c_str() );
     context->executeSubjectSend(t,m);
 }
 
