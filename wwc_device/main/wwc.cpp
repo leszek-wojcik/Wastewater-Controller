@@ -15,6 +15,7 @@
 #include <driver/adc.h>
 
 #include "esp_heap_trace.h"
+#include "esp_adc_cal.h"
 
 #define BLINK_GPIO (gpio_num_t)2
 #define AREATION_GPIO (gpio_num_t) 17
@@ -37,12 +38,39 @@ WWC::WWC(MQTT *mqtt):ActiveObject("WWC",4096,6)
     gpio_pad_select_gpio(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 
+    //Check TP is burned into eFuse
+    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK) {
+        printf("eFuse Two Point: Supported\n");
+    } else {
+        printf("eFuse Two Point: NOT supported\n");
+    }
+    //Check Vref is burned into eFuse
+    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK) {
+        printf("eFuse Vref: Supported\n");
+    } else {
+        printf("eFuse Vref: NOT supported\n");
+    }
+    
+
+    esp_adc_cal_characteristics_t *adc_chars;
+    adc_chars = (esp_adc_cal_characteristics_t*) calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize( (adc_unit_t) 1, ADC_ATTEN_DB_0, ADC_WIDTH_BIT_12, 1100, adc_chars);
+
+    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+        printf("Characterized using Two Point Value\n");
+    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+        printf("Characterized using eFuse Vref\n");
+    } else {
+        printf("Characterized using Default Vref\n");
+    }
+    
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_0);
-
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_DB_0);
-
+    int val = adc1_get_raw(ADC1_CHANNEL_0);
+    uint32_t voltage = esp_adc_cal_raw_to_voltage(val, adc_chars);
+    printf("!!! Voltage: %dmV\n", voltage);
+    
+    
     normalPeriod = 120 * 60 * 1000;
     normalDutyCycle = 0.75;
     circulationStartGMTOffset = -60 * 60 * 1000;
@@ -238,7 +266,7 @@ void WWC::updateControlPins()
 {
     printf ("A%dC%d\n", areation, circulation);
 
-    areation ? gpio_set_level(AREATION_GPIO,1) : gpio_set_level(AREATION_GPIO,0);
+    areation ? gpio_set_level(AREATION_GPIO,0) : gpio_set_level(AREATION_GPIO,1);
     circulation ? gpio_set_level(CIRCULATION_GPIO,1) : gpio_set_level(CIRCULATION_GPIO,0);
 }
 

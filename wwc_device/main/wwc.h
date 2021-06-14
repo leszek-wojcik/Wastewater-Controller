@@ -41,7 +41,7 @@ class WWC : public ActiveObject
 
         int memmoryAvaliable;
         int sameAsPrevious; 
-        
+
     public:
         WWC(MQTT *);
 

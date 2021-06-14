@@ -1,4 +1,6 @@
-class WiFi
+class MRequest;
+
+class WiFi: public ActiveObject
 {
     private:
         bool alt;
@@ -6,6 +8,10 @@ class WiFi
         void connect_alt_wifi(void);
     public:
         WiFi();
+        static WiFi *instance;
+        static MRequest *interruptMr;
+        void pushButton();
+
 
         inline void toggle(void)
         {
