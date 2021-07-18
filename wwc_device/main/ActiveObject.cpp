@@ -114,7 +114,7 @@ void ActiveObjectTimerCallback( TimerHandle_t xTimer )
 
 void ActiveObjectTaskFunction( void *q)
 {
-    QueueHandle_t queue = q;
+    QueueHandle_t queue = (QueueHandle_t) q;
     MRequest *mr;
 
     for (;;) 

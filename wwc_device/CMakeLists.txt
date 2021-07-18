@@ -3,4 +3,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
 project(wwc_device)
+message(STATUS "COMPONENT_DIRS=${COMPONENT_DIRS}")
+message(STATUS "EXTRA_COMPONENT_DIRS=${EXTRA_COMPONENT_DIRS}")

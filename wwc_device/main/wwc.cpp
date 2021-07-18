@@ -1,6 +1,6 @@
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+//#include "esp_event_loop.h"
 #include "esp_log.h"
 
 #include "ActiveObject.h"
@@ -14,7 +14,6 @@
 #include "topics.h"
 #include <driver/adc.h>
 
-#include "esp_heap_trace.h"
 #include "esp_adc_cal.h"
 
 #define BLINK_GPIO (gpio_num_t)2
@@ -211,16 +210,9 @@ void WWC::controlOnTmr()
     
     if ( aMemmoryAvaliable < 80000 && sameAsPrevious == 0)
     {
-        heap_trace_stop();
         ESP_LOGE("WWC","we got memory issue to work");
-        heap_trace_dump();
         esp_restart();
     }
-    
-    heap_trace_stop();
-    extern heap_trace_record_t tracebuffer[500];   
-    ESP_ERROR_CHECK(heap_trace_init_standalone(tracebuffer, 200));
-    ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
         
     memmoryAvaliable = aMemmoryAvaliable;  
 

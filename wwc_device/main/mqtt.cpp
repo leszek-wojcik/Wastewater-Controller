@@ -31,8 +31,8 @@ extern const uint8_t private_pem_key_start[] asm("_binary_private_pem_key_start"
 extern const uint8_t private_pem_key_end[] asm("_binary_private_pem_key_end");
 
 
-char HostAddress[255] = CONFIG_MQTT_HOST;
-uint32_t port = CONFIG_MQTT_PORT;
+char HostAddress[255] = AWS_IOT_MQTT_HOST;
+uint32_t port = AWS_IOT_MQTT_PORT;
 
 void disconnectCallbackHandler(AWS_IoT_Client *pClient, void *data) 
 {
@@ -334,7 +334,7 @@ void MQTT::init()
     ESP_LOGI(__PRETTY_FUNCTION__, "init");
     disconnectWiFi();
     vTaskDelay(1000/portTICK_PERIOD_MS);
-
+    ESP_LOGI("MQTT", "MQTT to WIFI connect");
     executeMethod( [=](){connectWiFi(); toggleWiFi(); });
 }
 

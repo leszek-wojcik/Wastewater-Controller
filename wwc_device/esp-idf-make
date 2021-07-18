@@ -3,11 +3,11 @@
 # check if esp-idf running
 if [[ $(sudo docker ps -f name=esp-idf -q) ]]; then 
 	echo "esp-idf is running"
-	sudo docker exec -ti esp-idf  /bin/bash -c "make $@"
+	sudo docker exec -ti esp-idf  /bin/bash -c "idf.py $@"
 else
 	echo "starting esp-idf"
-	sudo docker run -ti -d --name esp-idf -h esp-idf -v `pwd`:`pwd` -w `pwd` --device=/dev/ttyUSB0 esp-idf /bin/bash
-	sudo docker exec -ti esp-idf  /bin/bash -c "make $@"
+	sudo docker run -ti -d --name esp-idf -h esp-idf -v `pwd`:`pwd` -w `pwd` --device=/dev/ttyUSB0 esp-idf:4.3 /bin/bash
+	sudo docker exec -ti esp-idf  /bin/bash -c "idf.py $@"
 fi
 
 
