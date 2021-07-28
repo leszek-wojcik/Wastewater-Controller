@@ -41,6 +41,7 @@ class ActiveObject
         // block until it executed on other thread context
         uint32_t executeMethodSynchronously(const std::function<void()> &);
 
+        void delay(int milis);
 
         QueueHandle_t getQueue()
         {

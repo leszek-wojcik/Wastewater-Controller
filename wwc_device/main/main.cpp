@@ -12,13 +12,16 @@
 #include "wwc.h"
 #include "wifi.h"
 #include "mqtt.h"
+#include "LEDService.h"
 
 WWC *aWWC;
 WiFi *aWiFi;
 MQTT *aMQTT;
+LEDService *aLEDS;
 
 void createActiveObjects()
 {
+    aLEDS = new LEDService();
     aWiFi = new WiFi();
     aMQTT = new MQTT(aWiFi);
     aWWC = new WWC(aMQTT);

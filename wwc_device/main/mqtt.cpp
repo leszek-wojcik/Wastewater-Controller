@@ -62,7 +62,7 @@ void iot_subscribe_callback_handler(AWS_IoT_Client *pClient,
     MQTT::getInstance()->dispatchMessage(topic,msg);
 }
 
-MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 9216, 5),wifi(wifi)
+MQTT::MQTT(WiFi *wifi):ActiveObject("MQTT", 10000, 5),wifi(wifi)
 {
     instance = this;
 
@@ -335,7 +335,7 @@ void MQTT::init()
     disconnectWiFi();
     vTaskDelay(1000/portTICK_PERIOD_MS);
     ESP_LOGI("MQTT", "MQTT to WIFI connect");
-    executeMethod( [=](){connectWiFi(); toggleWiFi(); });
+    WiFi::getInstance()->connectAndToggle();
 }
 
 void MQTT::startInitTmr()

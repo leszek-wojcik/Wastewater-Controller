@@ -152,5 +152,11 @@ void ActiveObjectTaskFunction( void *q)
     }
 }
 
+void ActiveObject::delay(int milis)
+{
+    const TickType_t xDelay = milis / portTICK_PERIOD_MS;
+    vTaskDelay( xDelay );
+}
+
 std::map<ActiveObject*, TaskHandle_t> ActiveObject::taskHandles;
 

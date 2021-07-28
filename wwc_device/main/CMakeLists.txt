@@ -6,6 +6,8 @@ idf_component_register  (
                                 "mqttfsm.cpp" 
                                 "wifi.cpp" 
                                 "wwc.cpp"
+                                "LEDService.cpp"
+                                "ADCService.cpp"
                             INCLUDE_DIRS 
                                 "."
                         )

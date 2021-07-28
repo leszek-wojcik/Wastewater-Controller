@@ -1,6 +1,7 @@
 #include "ActiveObject.h"
 #include <memory>
 #include "mqtt.h"
+#include "ADCService.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -9,13 +10,13 @@ class WWC : public ActiveObject
 {
     private:
         AOTimer_t reportStatusTmr;
-        AOTimer_t aLEDtmr;
         AOTimer_t aControlTmr;
         AOTimer_t debugTmr;
 
         bool areation;
         bool circulation;
-        bool ledOn;
+
+        ADCService * adcService;
 
         MqttTopic_t mqttControlTopic;
         MqttTopic_t mqttStatusTopic;
@@ -62,7 +63,6 @@ class WWC : public ActiveObject
         void sendStatus();
 
         void controlOnTmr();
-        void ledOnTmr();
         void onReportStatus();
         void onDebugTmr();
 
